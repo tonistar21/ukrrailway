@@ -1,8 +1,8 @@
 import { BotContext } from '../context.js'
 import { mainMenuKeyboard } from '../keyboards.js'
+import { ensureBotAccess } from '../access.js'
 import { buildChatDescription } from '../utils/chat-description.js'
 import { activateDraftChat, getChatByTelegramChatId, getDraftChatById } from '../../services/chat.service.js'
-import { getUserByTelegramId } from '../../services/user.service.js'
 
 export async function handleChatShared(ctx: BotContext) {
   if (!ctx.from || !ctx.message || !('chat_shared' in ctx.message)) {
@@ -10,6 +10,10 @@ export async function handleChatShared(ctx: BotContext) {
   }
 
   const shared = ctx.message.chat_shared
+  if (!shared) {
+    return
+  }
+
   const pendingDraftChatId = ctx.session.pendingDraftChatId
   const pendingChatRequestId = ctx.session.pendingChatRequestId
 
@@ -27,11 +31,8 @@ export async function handleChatShared(ctx: BotContext) {
     return
   }
 
-  const currentUser = await getUserByTelegramId(BigInt(ctx.from.id))
+  const currentUser = await ensureBotAccess(ctx)
   if (!currentUser) {
-    await ctx.reply('Користувача не знайдено. Надішліть /start ще раз.', {
-      reply_markup: mainMenuKeyboard()
-    })
     return
   }
 

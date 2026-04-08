@@ -1,18 +1,11 @@
 import { BotContext } from '../context.js'
 import { mainMenuKeyboard } from '../keyboards.js'
+import { ensureBotAccess } from '../access.js'
 import { deleteChatById, getChatsByCreator } from '../../services/chat.service.js'
-import { getUserByTelegramId } from '../../services/user.service.js'
 
 export async function handleMyChats(ctx: BotContext) {
-  if (!ctx.from) {
-    return
-  }
-
-  const user = await getUserByTelegramId(BigInt(ctx.from.id))
+  const user = await ensureBotAccess(ctx)
   if (!user) {
-    await ctx.reply('Користувача не знайдено. Надішліть /start ще раз.', {
-      reply_markup: mainMenuKeyboard()
-    })
     return
   }
 

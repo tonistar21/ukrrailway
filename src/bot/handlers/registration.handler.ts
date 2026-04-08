@@ -1,11 +1,12 @@
 import { StudentCity } from '@prisma/client'
 import { BotContext } from '../context.js'
-import { mainMenuKeyboard, studentCityKeyboard, studentClubKeyboard } from '../keyboards.js'
+import { studentCityKeyboard, studentClubKeyboard } from '../keyboards.js'
+import { ensureCompletedRegistration, ensureRegisteredUser, getCurrentTelegramUser, getMenuByUser } from '../access.js'
 import { getActiveChatByClub } from '../../services/chat.service.js'
 import { createStudentApplication } from '../../services/student-application.service.js'
-import { getUserByTelegramId, updateStudentRegistrationProfile } from '../../services/user.service.js'
+import { updateStudentRegistrationProfile } from '../../services/user.service.js'
 
-const cityMap: Record<string, string> = {
+export const cityMap: Record<string, string> = {
   KYIV: 'Київ',
   LVIV: 'Львів',
   DNIPRO: 'Дніпро',
@@ -15,33 +16,102 @@ const cityMap: Record<string, string> = {
 }
 
 export async function startStudentRegistration(ctx: BotContext) {
-  ctx.session.createChatStep = 'studentFullName'
-  ctx.session.studentRegistrationDraft = {}
+  const user = await ensureRegisteredUser(ctx)
+  if (!user) {
+    return
+  }
 
-  await ctx.reply('Введіть ПІБ:')
+  ctx.session.createChatStep = 'studentFullName'
+  ctx.session.studentRegistrationDraft = {
+    fullName: user.studentFullName ?? undefined,
+    age: user.studentAge ?? undefined,
+    city: user.studentCity ?? undefined
+  }
+
+  await ctx.reply('Заповніть базову реєстрацію.\n\nВведіть ПІБ:')
+}
+
+export async function startStudentApplication(ctx: BotContext) {
+  const user = await ensureCompletedRegistration(ctx)
+  if (!user) {
+    return
+  }
+
+  if (user.role !== 'USER') {
+    await ctx.reply('Запис у гуртки доступний лише для звичайних користувачів.', {
+      reply_markup: getMenuByUser(user)
+    })
+    return
+  }
+
+  ctx.session.createChatStep = 'studentClub'
+  ctx.session.studentRegistrationDraft = {
+    fullName: user.studentFullName ?? undefined,
+    age: user.studentAge ?? undefined,
+    city: user.studentCity ?? undefined
+  }
+
+  await ctx.reply('Оберіть гурток для подачі заявки:', {
+    reply_markup: studentClubKeyboard()
+  })
 }
 
 export async function handleStudentCitySelection(ctx: BotContext) {
+  const user = await ensureRegisteredUser(ctx)
+  if (!user) {
+    await ctx.answerCallbackQuery({
+      text: 'Доступ ще не надано.'
+    })
+    return
+  }
+
   const data = ctx.callbackQuery?.data
 
-  if (!data?.startsWith('student_city:')) {
+  if (!data?.startsWith('student_city:') || ctx.session.createChatStep !== 'studentCity' || !ctx.from) {
     return
   }
 
   const city = data.replace('student_city:', '')
   ctx.session.studentRegistrationDraft.city = city
-  ctx.session.createChatStep = 'studentClub'
 
   await ctx.answerCallbackQuery()
-  await ctx.reply(`Обране місто: ${cityMap[city]}\n\nОберіть гурток:`, {
-    reply_markup: studentClubKeyboard()
+  const fullName = ctx.session.studentRegistrationDraft.fullName
+  const age = ctx.session.studentRegistrationDraft.age
+
+  if (!fullName || !age) {
+    await resetStudentRegistration(ctx, 'Дані базової реєстрації неповні. Спробуйте ще раз.')
+    return
+  }
+
+  await updateStudentRegistrationProfile({
+    telegramUserId: BigInt(ctx.from.id),
+    studentFullName: fullName,
+    studentAge: age,
+    studentCity: city as StudentCity
+  })
+
+  ctx.session.createChatStep = 'idle'
+  ctx.session.studentRegistrationDraft = {}
+
+  const refreshedUser = await getCurrentTelegramUser(ctx)
+
+  await ctx.reply(`Базову реєстрацію завершено.\n\nПІБ: ${fullName}\nВік: ${age}\nМісто: ${cityMap[city]}`, {
+    reply_markup: refreshedUser ? getMenuByUser(refreshedUser) : undefined
   })
 }
 
 export async function handleStudentClubSelection(ctx: BotContext) {
+  const user = await ensureRegisteredUser(ctx)
+  if (!user) {
+    await ctx.answerCallbackQuery({
+      text: 'Доступ ще не надано.'
+    })
+    return
+  }
+
   const data = ctx.callbackQuery?.data
 
-  if (!data?.startsWith('student_club:') || !ctx.from) {
+  if (!data?.startsWith('student_club:') || !ctx.from || ctx.session.createChatStep !== 'studentClub') {
     return
   }
 
@@ -49,12 +119,6 @@ export async function handleStudentClubSelection(ctx: BotContext) {
   ctx.session.studentRegistrationDraft.club = club
 
   await ctx.answerCallbackQuery()
-
-  const user = await getUserByTelegramId(BigInt(ctx.from.id))
-  if (!user) {
-    await resetStudentRegistration(ctx, 'Користувача не знайдено. Надішліть /start ще раз.')
-    return
-  }
 
   const fullName = ctx.session.studentRegistrationDraft.fullName
   const age = ctx.session.studentRegistrationDraft.age
@@ -99,7 +163,7 @@ export async function handleStudentClubSelection(ctx: BotContext) {
   await ctx.reply(
     `Вашу заявку на гурток "${club}" відправлено на перевірку.\n\nПІБ: ${application.fullName}\nВік: ${application.age}\nМісто: ${cityMap[application.city]}\n\nОчікуйте рішення викладача.`,
     {
-      reply_markup: mainMenuKeyboard()
+      reply_markup: getMenuByUser(user)
     }
   )
 
@@ -122,19 +186,24 @@ export async function handleStudentClubSelection(ctx: BotContext) {
     await ctx.reply(
       'Заявку збережено, але не вдалося миттєво надіслати сповіщення викладачу. Він побачить її у розділі "Заявки".',
       {
-        reply_markup: mainMenuKeyboard()
+        reply_markup: getMenuByUser(user)
       }
     )
   }
 }
 
 export async function handleStudentRegistrationTextInput(ctx: BotContext) {
-  if (!ctx.from || !ctx.message || !('text' in ctx.message)) {
+  if (!ctx.from || !ctx.message || typeof ctx.message.text !== 'string') {
     return false
   }
 
   if (ctx.chat?.type !== 'private') {
     return false
+  }
+
+  const user = await ensureRegisteredUser(ctx)
+  if (!user) {
+    return true
   }
 
   const text = ctx.message.text.trim()
@@ -176,7 +245,9 @@ async function resetStudentRegistration(ctx: BotContext, text: string) {
   ctx.session.createChatStep = 'idle'
   ctx.session.studentRegistrationDraft = {}
 
+  const user = await getCurrentTelegramUser(ctx)
+
   await ctx.reply(text, {
-    reply_markup: mainMenuKeyboard()
+    reply_markup: user ? getMenuByUser(user) : undefined
   })
 }

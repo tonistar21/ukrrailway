@@ -7,6 +7,9 @@ export function createInitialSession(): BotSession {
     pendingDraftChatId: null,
     pendingChatRequestId: null,
     profileDraft: {},
-    studentRegistrationDraft: {}
+    studentRegistrationDraft: {},
+    chatManagementStep: 'idle',
+    chatManagementDraft: {},
+    pendingUserRequestId: null
   }
 }

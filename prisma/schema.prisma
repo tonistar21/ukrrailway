@@ -8,6 +8,7 @@ datasource db {
 }
 
 enum UserRole {
+  USER
   TEACHER
   VICE_ADMIN
   ADMIN
@@ -47,7 +48,7 @@ model User {
   firstName          String
   lastName           String?
   fullName           String
-  role               UserRole     @default(TEACHER)
+  role               UserRole     @default(USER)
   status             UserStatus   @default(ACTIVE)
   profileName        String?
   profilePhone       String?

@@ -1,13 +1,13 @@
 import { StudentApplicationStatus, UserRole } from '@prisma/client'
 import { BotContext } from '../context.js'
 import { applicationsKeyboard, applicationDecisionKeyboard, mainMenuKeyboard } from '../keyboards.js'
+import { ensureBotAccess } from '../access.js'
 import {
   approveApplication,
   getApplicationById,
   getPendingApplicationsByTeacher,
   rejectApplication
 } from '../../services/student-application.service.js'
-import { getUserByTelegramId } from '../../services/user.service.js'
 
 const cityMap: Record<string, string> = {
   KYIV: 'Київ',
@@ -19,19 +19,16 @@ const cityMap: Record<string, string> = {
 }
 
 export async function handleApplications(ctx: BotContext) {
-  if (!ctx.from) {
-    return
-  }
-
-  const user = await getUserByTelegramId(BigInt(ctx.from.id))
+  const user = await ensureBotAccess(ctx)
   if (!user) {
-    await ctx.reply('Користувача не знайдено. Надішліть /start ще раз.', {
-      reply_markup: mainMenuKeyboard()
-    })
     return
   }
 
-  if (![UserRole.TEACHER, UserRole.VICE_ADMIN, UserRole.ADMIN].includes(user.role)) {
+  if (
+    user.role !== UserRole.TEACHER &&
+    user.role !== UserRole.VICE_ADMIN &&
+    user.role !== UserRole.ADMIN
+  ) {
     await ctx.reply('Розділ заявок доступний лише викладачам та адміністраторам.', {
       reply_markup: mainMenuKeyboard()
     })
@@ -72,7 +69,7 @@ export async function handleApproveApplication(ctx: BotContext) {
   }
 
   const applicationId = data.replace('application_approve:', '')
-  const currentUser = await getUserByTelegramId(BigInt(ctx.from.id))
+  const currentUser = await ensureBotAccess(ctx)
 
   if (!currentUser) {
     await ctx.answerCallbackQuery({
@@ -152,7 +149,7 @@ export async function handleRejectApplication(ctx: BotContext) {
   }
 
   const applicationId = data.replace('application_reject:', '')
-  const currentUser = await getUserByTelegramId(BigInt(ctx.from.id))
+  const currentUser = await ensureBotAccess(ctx)
 
   if (!currentUser) {
     await ctx.answerCallbackQuery({

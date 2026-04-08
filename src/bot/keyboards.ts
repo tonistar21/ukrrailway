@@ -1,17 +1,37 @@
 import { InlineKeyboard, Keyboard } from 'grammy'
+import { fullGroupAdministratorRights } from './utils/chat-admin-rights.js'
 
-export function mainMenuKeyboard() {
+export function adminMenuKeyboard() {
   return new Keyboard()
     .text('Створити чат')
     .text('Мої чати')
     .row()
-    .text('Реєстрація')
+    .text('Керування чатами')
     .text('Заявки')
     .row()
     .text('Профіль')
     .text('Усі чати')
+    .persistent()
+    .resized()
+}
+
+export function mainMenuKeyboard() {
+  return adminMenuKeyboard()
+}
+
+export function incompleteRegistrationKeyboard() {
+  return new Keyboard()
+    .text('Завершити реєстрацію')
+    .persistent()
+    .resized()
+}
+
+export function userMenuKeyboard() {
+  return new Keyboard()
+    .text('Записатися в гурток')
     .row()
-    .text('Акаунти')
+    .text('Профіль')
+    .persistent()
     .resized()
 }
 
@@ -58,14 +78,8 @@ export function connectChatKeyboard(requestId: number) {
       chat_is_channel: false,
       chat_is_created: true,
       request_title: true,
-      bot_administrator_rights: {
-        can_change_info: true,
-        can_invite_users: true
-      },
-      user_administrator_rights: {
-        can_change_info: true,
-        can_invite_users: true
-      }
+      bot_administrator_rights: fullGroupAdministratorRights,
+      user_administrator_rights: fullGroupAdministratorRights
     })
     .row()
     .text('Скасувати')
@@ -73,9 +87,9 @@ export function connectChatKeyboard(requestId: number) {
     .oneTime()
 }
 
-export function profileKeyboard() {
+export function profileKeyboard(updateButtonText = 'Оновити профіль') {
   return new Keyboard()
-    .text('Оновити профіль')
+    .text(updateButtonText)
     .row()
     .text('Назад у меню')
     .resized()
@@ -121,4 +135,67 @@ export function applicationsKeyboard() {
     .row()
     .text('Назад у меню')
     .resized()
+}
+
+function truncateButtonText(text: string, maxLength = 30) {
+  return text.length <= maxLength ? text : `${text.slice(0, maxLength - 1)}…`
+}
+
+export function chatManagementChatsKeyboard(
+  chats: Array<{
+    id: string
+    title: string
+  }>
+) {
+  const keyboard = new InlineKeyboard()
+
+  for (const chat of chats) {
+    keyboard.text(truncateButtonText(chat.title), `manage_chat:${chat.id}`).row()
+  }
+
+  return keyboard
+}
+
+export function chatManagementActionsKeyboard(chatId: string) {
+  return new InlineKeyboard()
+    .text('Роль / тег', `manage_action:${chatId}:role`)
+    .text('Видалити', `manage_action:${chatId}:kick`)
+    .row()
+    .text('Замутити', `manage_action:${chatId}:mute`)
+    .text('Зняти мут', `manage_action:${chatId}:unmute`)
+    .row()
+    .text('Змінити назву', `manage_action:${chatId}:title`)
+    .row()
+    .text('Змінити опис', `manage_action:${chatId}:description`)
+    .row()
+    .text('До списку чатів', `manage_action:${chatId}:back`)
+}
+
+export function selectChatMemberKeyboard(requestId: number) {
+  return new Keyboard()
+    .requestUsers('Обрати учасника', requestId, {
+      user_is_bot: false,
+      max_quantity: 1,
+      request_name: true,
+      request_username: true
+    })
+    .row()
+    .text('Скасувати')
+    .resized()
+    .oneTime()
+}
+
+export function muteDurationKeyboard(chatId: string) {
+  return new InlineKeyboard()
+    .text('1 година', `manage_mute:${chatId}:1h`)
+    .text('1 день', `manage_mute:${chatId}:1d`)
+    .row()
+    .text('Назавжди', `manage_mute:${chatId}:forever`)
+    .text('Скасувати', `manage_mute:${chatId}:cancel`)
+}
+
+export function confirmChatMemberRemovalKeyboard(chatId: string) {
+  return new InlineKeyboard()
+    .text('Підтвердити', `manage_kick:${chatId}:confirm`)
+    .text('Скасувати', `manage_kick:${chatId}:cancel`)
 }

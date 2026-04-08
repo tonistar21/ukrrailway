@@ -1,10 +1,15 @@
 import { bot } from './bot/bot.js'
+import { fullGroupAdministratorRights } from './bot/utils/chat-admin-rights.js'
 import { env } from './config/env.js'
 import { prisma } from './db/prisma.js'
 import { createHttpServer } from './server/http.js'
 
 async function bootstrap() {
   await prisma.$connect()
+
+  await bot.api.setMyDefaultAdministratorRights({
+    rights: fullGroupAdministratorRights
+  })
 
   const app = createHttpServer()
 

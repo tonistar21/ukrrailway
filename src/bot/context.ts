@@ -14,6 +14,16 @@ export type CreateChatStep =
   | 'studentCity'
   | 'studentClub'
 
+export type ChatManagementStep =
+  | 'idle'
+  | 'awaitingRoleUser'
+  | 'awaitingRoleTag'
+  | 'awaitingMuteUser'
+  | 'awaitingUnmuteUser'
+  | 'awaitingKickUser'
+  | 'awaitingTitle'
+  | 'awaitingDescription'
+
 export interface CreateChatDraft {
   club?: string
   ageGroup?: string
@@ -33,6 +43,12 @@ export interface StudentRegistrationDraft {
   club?: string
 }
 
+export interface ChatManagementDraft {
+  chatId?: string
+  targetUserId?: number
+  targetUserLabel?: string
+}
+
 export interface BotSession {
   createChatStep: CreateChatStep
   createChatDraft: CreateChatDraft
@@ -40,6 +56,9 @@ export interface BotSession {
   pendingChatRequestId: number | null
   profileDraft: ProfileDraft
   studentRegistrationDraft: StudentRegistrationDraft
+  chatManagementStep: ChatManagementStep
+  chatManagementDraft: ChatManagementDraft
+  pendingUserRequestId: number | null
 }
 
 export type BotContext = Context & SessionFlavor<BotSession>

@@ -25,7 +25,7 @@ export async function upsertTelegramUser(params: {
       firstName: params.firstName,
       lastName: params.lastName,
       fullName,
-      role: UserRole.TEACHER,
+      role: UserRole.USER,
       status: UserStatus.ACTIVE
     }
   })
@@ -43,6 +43,20 @@ export async function getAllUsers() {
   return prisma.user.findMany({
     orderBy: {
       createdAt: 'desc'
+    }
+  })
+}
+
+export async function updateUserRole(params: {
+  userId: string
+  role: UserRole
+}) {
+  return prisma.user.update({
+    where: {
+      id: params.userId
+    },
+    data: {
+      role: params.role
     }
   })
 }
@@ -70,7 +84,7 @@ export async function updateStudentRegistrationProfile(params: {
   studentFullName: string
   studentAge: number
   studentCity: StudentCity
-  studentClub: string
+  studentClub?: string
 }) {
   return prisma.user.update({
     where: {
@@ -80,7 +94,7 @@ export async function updateStudentRegistrationProfile(params: {
       studentFullName: params.studentFullName,
       studentAge: params.studentAge,
       studentCity: params.studentCity,
-      studentClub: params.studentClub
+      ...(params.studentClub !== undefined ? { studentClub: params.studentClub } : {})
     }
   })
 }

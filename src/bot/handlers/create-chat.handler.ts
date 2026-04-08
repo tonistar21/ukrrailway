@@ -4,11 +4,19 @@ import {
   clubKeyboard,
   connectChatKeyboard,
   contactChoiceKeyboard,
+  incompleteRegistrationKeyboard,
   mainMenuKeyboard
 } from '../keyboards.js'
+import {
+  ensureBotAccess,
+  getCurrentTelegramUser,
+  getMenuByUser,
+  hasCompletedRegistration,
+  replyIncompleteRegistrationMessage,
+  replyPendingAccessMessage
+} from '../access.js'
 import { buildChatTitle } from '../utils/chat-title.js'
 import { createDraftChat } from '../../services/chat.service.js'
-import { getUserByTelegramId } from '../../services/user.service.js'
 
 const CHAT_REQUEST_ID = 1001
 
@@ -21,6 +29,11 @@ function buildContactInfoFromProfile(params: {
 }
 
 export async function startCreateChatFlow(ctx: BotContext) {
+  const user = await ensureBotAccess(ctx)
+  if (!user) {
+    return
+  }
+
   ctx.session.createChatStep = 'club'
   ctx.session.createChatDraft = {}
   ctx.session.pendingDraftChatId = null
@@ -32,6 +45,14 @@ export async function startCreateChatFlow(ctx: BotContext) {
 }
 
 export async function handleClubSelection(ctx: BotContext) {
+  const user = await ensureBotAccess(ctx)
+  if (!user) {
+    await ctx.answerCallbackQuery({
+      text: 'Доступ ще не надано.'
+    })
+    return
+  }
+
   const data = ctx.callbackQuery?.data
 
   if (!data?.startsWith('club:')) {
@@ -49,6 +70,14 @@ export async function handleClubSelection(ctx: BotContext) {
 }
 
 export async function handleAgeGroupSelection(ctx: BotContext) {
+  const user = await ensureBotAccess(ctx)
+  if (!user) {
+    await ctx.answerCallbackQuery({
+      text: 'Доступ ще не надано.'
+    })
+    return
+  }
+
   const data = ctx.callbackQuery?.data
 
   if (!data?.startsWith('age:')) {
@@ -57,8 +86,6 @@ export async function handleAgeGroupSelection(ctx: BotContext) {
 
   const ageGroup = data.replace('age:', '')
   ctx.session.createChatDraft.ageGroup = ageGroup
-
-  const user = ctx.from ? await getUserByTelegramId(BigInt(ctx.from.id)) : null
 
   await ctx.answerCallbackQuery()
 
@@ -80,7 +107,8 @@ export async function handleAgeGroupSelection(ctx: BotContext) {
 }
 
 export async function handleUseProfileContacts(ctx: BotContext) {
-  if (!ctx.from) {
+  const user = await ensureBotAccess(ctx)
+  if (!user || !ctx.from) {
     return
   }
 
@@ -88,7 +116,6 @@ export async function handleUseProfileContacts(ctx: BotContext) {
     return
   }
 
-  const user = await getUserByTelegramId(BigInt(ctx.from.id))
   if (!user || !user.profileName || !user.profilePhone || !user.profileTelegramTag) {
     ctx.session.createChatStep = 'contactInfo'
     await ctx.reply('Профіль не заповнений повністю. Введіть контактні дані вручну.')
@@ -105,6 +132,11 @@ export async function handleUseProfileContacts(ctx: BotContext) {
 }
 
 export async function handleManualContactsChoice(ctx: BotContext) {
+  const user = await ensureBotAccess(ctx)
+  if (!user) {
+    return
+  }
+
   if (ctx.session.createChatStep !== 'contactChoice') {
     return
   }
@@ -120,8 +152,9 @@ async function finalizeDraftChat(ctx: BotContext, userId: string, fullName: stri
   const contactInfo = ctx.session.createChatDraft.contactInfo
 
   if (!club || !ageGroup || !contactInfo) {
+    const user = await getCurrentTelegramUser(ctx)
     await ctx.reply('Дані створення чату неповні. Спробуйте ще раз.', {
-      reply_markup: mainMenuKeyboard()
+      reply_markup: user ? getMenuByUser(user) : mainMenuKeyboard()
     })
     ctx.session.createChatStep = 'idle'
     ctx.session.createChatDraft = {}
@@ -154,12 +187,17 @@ async function finalizeDraftChat(ctx: BotContext, userId: string, fullName: stri
 }
 
 export async function handleCreateChatTextInput(ctx: BotContext) {
-  if (!ctx.from || !ctx.message || !('text' in ctx.message)) {
+  if (!ctx.from || !ctx.message || typeof ctx.message.text !== 'string') {
     return false
   }
 
   if (ctx.chat?.type !== 'private') {
     return false
+  }
+
+  const user = await ensureBotAccess(ctx)
+  if (!user) {
+    return true
   }
 
   if (ctx.session.createChatStep !== 'contactInfo') {
@@ -174,18 +212,6 @@ export async function handleCreateChatTextInput(ctx: BotContext) {
 
   ctx.session.createChatDraft.contactInfo = contactInfo
 
-  const user = await getUserByTelegramId(BigInt(ctx.from.id))
-  if (!user) {
-    await ctx.reply('Не вдалося знайти користувача. Надішліть /start ще раз.', {
-      reply_markup: mainMenuKeyboard()
-    })
-    ctx.session.createChatStep = 'idle'
-    ctx.session.createChatDraft = {}
-    ctx.session.pendingDraftChatId = null
-    ctx.session.pendingChatRequestId = null
-    return true
-  }
-
   await finalizeDraftChat(ctx, user.id, user.fullName)
   return true
 }
@@ -196,8 +222,30 @@ export async function handleCancel(ctx: BotContext) {
   ctx.session.pendingDraftChatId = null
   ctx.session.pendingChatRequestId = null
   ctx.session.profileDraft = {}
+  ctx.session.studentRegistrationDraft = {}
+  ctx.session.chatManagementStep = 'idle'
+  ctx.session.chatManagementDraft = {}
+  ctx.session.pendingUserRequestId = null
+
+  const user = await getCurrentTelegramUser(ctx)
+  if (!user) {
+    await ctx.reply('Дію скасовано.', {
+      reply_markup: incompleteRegistrationKeyboard()
+    })
+    return
+  }
+
+  if (!hasCompletedRegistration(user)) {
+    await replyIncompleteRegistrationMessage(ctx, user)
+    return
+  }
+
+  if (user.role === 'USER') {
+    await replyPendingAccessMessage(ctx, user)
+    return
+  }
 
   await ctx.reply('Дію скасовано.', {
-    reply_markup: mainMenuKeyboard()
+    reply_markup: getMenuByUser(user)
   })
 }

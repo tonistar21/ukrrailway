@@ -31,8 +31,43 @@ export async function getChatsByCreator(createdByUserId: string) {
   })
 }
 
+export async function getActiveChatsByCreator(createdByUserId: string) {
+  return prisma.chat.findMany({
+    where: {
+      createdByUserId,
+      status: ChatStatus.ACTIVE,
+      telegramChatId: {
+        not: null
+      }
+    },
+    include: {
+      createdBy: true
+    },
+    orderBy: {
+      createdAt: 'desc'
+    }
+  })
+}
+
 export async function getAllChats() {
   return prisma.chat.findMany({
+    include: {
+      createdBy: true
+    },
+    orderBy: {
+      createdAt: 'desc'
+    }
+  })
+}
+
+export async function getAllActiveChats() {
+  return prisma.chat.findMany({
+    where: {
+      status: ChatStatus.ACTIVE,
+      telegramChatId: {
+        not: null
+      }
+    },
     include: {
       createdBy: true
     },
@@ -49,6 +84,29 @@ export async function getDraftChatById(chatId: string) {
     },
     include: {
       createdBy: true
+    }
+  })
+}
+
+export async function getChatById(chatId: string) {
+  return prisma.chat.findUnique({
+    where: {
+      id: chatId
+    },
+    include: {
+      createdBy: true
+    }
+  })
+}
+
+export async function getLatestDraftChatByCreator(createdByUserId: string) {
+  return prisma.chat.findFirst({
+    where: {
+      createdByUserId,
+      status: ChatStatus.DRAFT
+    },
+    orderBy: {
+      createdAt: 'desc'
     }
   })
 }
@@ -103,6 +161,20 @@ export async function deleteChatByTelegramChatId(telegramChatId: bigint) {
   return prisma.chat.deleteMany({
     where: {
       telegramChatId
+    }
+  })
+}
+
+export async function updateChatTitleById(params: {
+  chatId: string
+  title: string
+}) {
+  return prisma.chat.update({
+    where: {
+      id: params.chatId
+    },
+    data: {
+      title: params.title
     }
   })
 }

@@ -1,17 +1,33 @@
 import { BotContext } from '../context.js'
-import { mainMenuKeyboard, profileKeyboard } from '../keyboards.js'
-import { getUserByTelegramId, updateUserProfile } from '../../services/user.service.js'
+import { incompleteRegistrationKeyboard, profileKeyboard } from '../keyboards.js'
+import {
+  ensureCompletedRegistration,
+  getCurrentTelegramUser,
+  getMenuByUser,
+  hasCompletedRegistration,
+} from '../access.js'
+import { cityMap, startStudentRegistration } from './registration.handler.js'
+import { updateUserProfile } from '../../services/user.service.js'
 
 export async function handleProfile(ctx: BotContext) {
   if (!ctx.from) {
     return
   }
 
-  const user = await getUserByTelegramId(BigInt(ctx.from.id))
+  const user = await ensureCompletedRegistration(ctx)
   if (!user) {
-    await ctx.reply('Користувача не знайдено. Надішліть /start ще раз.', {
-      reply_markup: mainMenuKeyboard()
-    })
+    return
+  }
+
+  if (user.role === 'USER') {
+    const cityLabel = user.studentCity ? cityMap[user.studentCity] : 'не заповнено'
+
+    await ctx.reply(
+      `Ваш профіль:\n\nПІБ: ${user.studentFullName ?? 'не заповнено'}\nВік: ${user.studentAge ?? 'не заповнено'}\nМісто: ${cityLabel}\nОстанній гурток: ${user.studentClub ?? 'ще не обрано'}`,
+      {
+        reply_markup: profileKeyboard('Оновити дані')
+      }
+    )
     return
   }
 
@@ -28,6 +44,16 @@ export async function handleProfile(ctx: BotContext) {
 }
 
 export async function startProfileUpdate(ctx: BotContext) {
+  const user = await ensureCompletedRegistration(ctx)
+  if (!user) {
+    return
+  }
+
+  if (user.role === 'USER') {
+    await startStudentRegistration(ctx)
+    return
+  }
+
   ctx.session.createChatStep = 'profileName'
   ctx.session.profileDraft = {}
 
@@ -35,12 +61,25 @@ export async function startProfileUpdate(ctx: BotContext) {
 }
 
 export async function handleProfileTextInput(ctx: BotContext) {
-  if (!ctx.from || !ctx.message || !('text' in ctx.message)) {
+  if (!ctx.from || !ctx.message || typeof ctx.message.text !== 'string') {
     return false
   }
 
   if (ctx.chat?.type !== 'private') {
     return false
+  }
+
+  if (
+    ctx.session.createChatStep !== 'profileName' &&
+    ctx.session.createChatStep !== 'profilePhone' &&
+    ctx.session.createChatStep !== 'profileTelegramTag'
+  ) {
+    return false
+  }
+
+  const currentUser = await ensureCompletedRegistration(ctx)
+  if (!currentUser) {
+    return true
   }
 
   const text = ctx.message.text.trim()
@@ -86,7 +125,7 @@ export async function handleProfileTextInput(ctx: BotContext) {
       ctx.session.profileDraft = {}
 
       await ctx.reply('Профіль не вдалося зберегти. Спробуйте ще раз.', {
-        reply_markup: mainMenuKeyboard()
+        reply_markup: getMenuByUser(currentUser)
       })
       return true
     }
@@ -102,7 +141,7 @@ export async function handleProfileTextInput(ctx: BotContext) {
     ctx.session.profileDraft = {}
 
     await ctx.reply('Профіль успішно оновлено.', {
-      reply_markup: mainMenuKeyboard()
+      reply_markup: getMenuByUser(currentUser)
     })
     return true
   }
@@ -113,8 +152,26 @@ export async function handleProfileTextInput(ctx: BotContext) {
 export async function handleBackToMenu(ctx: BotContext) {
   ctx.session.createChatStep = 'idle'
   ctx.session.profileDraft = {}
+  ctx.session.chatManagementStep = 'idle'
+  ctx.session.chatManagementDraft = {}
+  ctx.session.pendingUserRequestId = null
+
+  const user = await getCurrentTelegramUser(ctx)
+  if (!user) {
+    await ctx.reply('Надішліть /start, щоб зареєструватися в системі.', {
+      reply_markup: incompleteRegistrationKeyboard()
+    })
+    return
+  }
+
+  if (!hasCompletedRegistration(user)) {
+    await ctx.reply('Повертаю вас до анкети.', {
+      reply_markup: incompleteRegistrationKeyboard()
+    })
+    return
+  }
 
   await ctx.reply('Повертаю вас до головного меню.', {
-    reply_markup: mainMenuKeyboard()
+    reply_markup: getMenuByUser(user)
   })
 }
