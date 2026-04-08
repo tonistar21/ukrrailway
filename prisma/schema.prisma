@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  TEACHER
+  VICE_ADMIN
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  BLOCKED
+}
+
+enum ChatStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+  DISCONNECTED
+}
+
+enum StudentCity {
+  KYIV
+  LVIV
+  DNIPRO
+  RIVNE
+  ZAPORIZHZHIA
+  KHARKIV
+}
+
+enum StudentApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id                 String       @id @default(cuid())
+  telegramUserId     BigInt       @unique
+  username           String?
+  firstName          String
+  lastName           String?
+  fullName           String
+  role               UserRole     @default(TEACHER)
+  status             UserStatus   @default(ACTIVE)
+  profileName        String?
+  profilePhone       String?
+  profileTelegramTag String?
+  studentFullName    String?
+  studentAge         Int?
+  studentCity        StudentCity?
+  studentClub        String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  createdChats       Chat[]       @relation("ChatCreator")
+  assignedApplications StudentApplication[] @relation("AssignedTeacherApplications")
+  reviewedApplications StudentApplication[] @relation("ReviewedApplications")
+  ownApplications    StudentApplication[] @relation("ApplicantApplications")
+}
+
+model Chat {
+  id              String      @id @default(cuid())
+  telegramChatId  BigInt?     @unique
+  title           String
+  status          ChatStatus  @default(DRAFT)
+  createdByUserId String
+  club            String
+  ageGroup        String
+  contactInfo     String
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  createdBy       User        @relation("ChatCreator", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  applications    StudentApplication[]
+}
+
+model StudentApplication {
+  id                    String                    @id @default(cuid())
+  applicantUserId       String
+  fullName              String
+  age                   Int
+  city                  StudentCity
+  club                  String
+  status                StudentApplicationStatus  @default(PENDING)
+  assignedTeacherUserId String
+  targetChatId          String
+  reviewedByUserId      String?
+  reviewedAt            DateTime?
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+
+  applicant             User                      @relation("ApplicantApplications", fields: [applicantUserId], references: [id], onDelete: Cascade)
+  assignedTeacher       User                      @relation("AssignedTeacherApplications", fields: [assignedTeacherUserId], references: [id], onDelete: Cascade)
+  reviewedBy            User?                     @relation("ReviewedApplications", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  targetChat            Chat                      @relation(fields: [targetChatId], references: [id], onDelete: Cascade)
+
+  @@index([assignedTeacherUserId, status])
+  @@index([applicantUserId, status])
+}
