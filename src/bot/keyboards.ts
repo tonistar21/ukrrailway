@@ -1,51 +1,94 @@
+import { RegistrationType, UserRole } from '@prisma/client'
 import { InlineKeyboard, Keyboard } from 'grammy'
 import { fullGroupAdministratorRights } from './utils/chat-admin-rights.js'
 
-export function adminMenuKeyboard() {
+export function managerMenuKeyboard() {
   return new Keyboard()
     .text('Створити чат')
     .text('Мої чати')
     .row()
+    .text('Журнал відвідуваності')
     .text('Керування чатами')
-    .text('Заявки')
+    .row()
+    .text('Верифікація викладачів')
+    .text('Усі чати')
     .row()
     .text('Профіль')
-    .text('Усі чати')
     .persistent()
     .resized()
 }
 
-export function mainMenuKeyboard() {
-  return adminMenuKeyboard()
+export function teacherMenuKeyboard(canVerifyStudents = false) {
+  const keyboard = new Keyboard()
+    .text('Створити чат')
+    .text('Мої чати')
+    .row()
+    .text('Керування чатами')
+    .text('Заявки в гуртки')
+    .row()
+    .text('Події')
+    .text('Журнал відвідуваності')
+    .row()
+
+  return keyboard
+    .text('Профіль')
+    .persistent()
+    .resized()
+}
+
+export function staffMenuKeyboard(role: UserRole, canVerifyStudents = false) {
+  if (role === UserRole.ADMIN || role === UserRole.VICE_ADMIN) {
+    return managerMenuKeyboard()
+  }
+
+  return teacherMenuKeyboard(canVerifyStudents)
+}
+
+export function mainMenuKeyboard(role: UserRole, canVerifyStudents = false) {
+  return staffMenuKeyboard(role, canVerifyStudents)
 }
 
 export function incompleteRegistrationKeyboard() {
   return new Keyboard()
-    .text('Завершити реєстрацію')
+    .text('Почати реєстрацію')
+    .persistent()
+    .resized()
+}
+
+export function pendingVerificationKeyboard() {
+  return new Keyboard()
+    .text('Перевірити статус')
+    .row()
+    .text('Профіль')
     .persistent()
     .resized()
 }
 
 export function userMenuKeyboard() {
   return new Keyboard()
-    .text('Записатися в гурток')
-    .row()
     .text('Профіль')
     .persistent()
     .resized()
 }
 
+const clubs = ['Робототехніка', 'Програмування', 'Англійська мова', 'Математика', 'Малювання']
+
+function buildClubSelectionKeyboard(prefix: 'club' | 'student_club' | 'teacher_club') {
+  const keyboard = new InlineKeyboard()
+
+  clubs.forEach((club, index) => {
+    keyboard.text(club, `${prefix}:${club}`)
+
+    if (index < clubs.length - 1) {
+      keyboard.row()
+    }
+  })
+
+  return keyboard
+}
+
 export function clubKeyboard() {
-  return new InlineKeyboard()
-    .text('Робототехніка', 'club:Робототехніка')
-    .row()
-    .text('Програмування', 'club:Програмування')
-    .row()
-    .text('Англійська мова', 'club:Англійська мова')
-    .row()
-    .text('Математика', 'club:Математика')
-    .row()
-    .text('Малювання', 'club:Малювання')
+  return buildClubSelectionKeyboard('club')
 }
 
 export function ageGroupKeyboard() {
@@ -110,17 +153,34 @@ export function studentCityKeyboard() {
     .text('Харків', 'student_city:KHARKIV')
 }
 
-export function studentClubKeyboard() {
+export function teacherCityKeyboard() {
   return new InlineKeyboard()
-    .text('Робототехніка', 'student_club:Робототехніка')
+    .text('Київ', 'teacher_city:KYIV')
     .row()
-    .text('Програмування', 'student_club:Програмування')
+    .text('Львів', 'teacher_city:LVIV')
     .row()
-    .text('Англійська мова', 'student_club:Англійська мова')
+    .text('Дніпро', 'teacher_city:DNIPRO')
     .row()
-    .text('Математика', 'student_club:Математика')
+    .text('Рівне', 'teacher_city:RIVNE')
     .row()
-    .text('Малювання', 'student_club:Малювання')
+    .text('Запоріжжя', 'teacher_city:ZAPORIZHZHIA')
+    .row()
+    .text('Харків', 'teacher_city:KHARKIV')
+}
+
+export function studentClubKeyboard() {
+  return buildClubSelectionKeyboard('student_club')
+}
+
+export function teacherClubKeyboard() {
+  return buildClubSelectionKeyboard('teacher_club')
+}
+
+export function registrationTypeKeyboard() {
+  return new InlineKeyboard()
+    .text('Учня', 'registration_type:STUDENT')
+    .row()
+    .text('Викладача', 'registration_type:TEACHER')
 }
 
 export function applicationDecisionKeyboard(applicationId: string) {
@@ -131,10 +191,94 @@ export function applicationDecisionKeyboard(applicationId: string) {
 
 export function applicationsKeyboard() {
   return new Keyboard()
-    .text('Оновити заявки')
+    .text('Оновити заявки в гуртки')
     .row()
     .text('Назад у меню')
     .resized()
+}
+
+export function eventPhotoKeyboard() {
+  return new Keyboard()
+    .text('Пропустити фото')
+    .row()
+    .text('Скасувати')
+    .resized()
+    .oneTime()
+}
+
+export function eventsHubKeyboard() {
+  return new Keyboard()
+    .text('Створити подію')
+    .row()
+    .text('Оновити події')
+    .row()
+    .text('Назад у меню')
+    .resized()
+}
+
+export function eventsListKeyboard(
+  events: Array<{
+    id: string
+    title: string
+  }>
+) {
+  const keyboard = new InlineKeyboard()
+
+  for (const event of events) {
+    keyboard.text(truncateButtonText(event.title), `event_open:${event.id}`).row()
+  }
+
+  return keyboard.text('Створити подію', 'event_create')
+}
+
+export function eventActionsKeyboard(eventId: string) {
+  return new InlineKeyboard()
+    .text('Надіслати в групу', `event_send:${eventId}`)
+    .row()
+    .text('До списку подій', 'event_list')
+}
+
+export function eventChatsKeyboard(params: {
+  eventId: string
+  chats: Array<{
+    id: string
+    title: string
+    isSent: boolean
+  }>
+}) {
+  const keyboard = new InlineKeyboard()
+
+  for (const chat of params.chats) {
+    const label = chat.isSent ? `Надіслано: ${chat.title}` : chat.title
+    keyboard.text(truncateButtonText(label), `esc:${params.eventId}:${chat.id}`).row()
+  }
+
+  return keyboard.text('До події', `event_open:${params.eventId}`)
+}
+
+export function verificationCenterKeyboard(queueTypes: RegistrationType[]) {
+  const keyboard = new InlineKeyboard()
+
+  for (const queueType of queueTypes) {
+    if (queueType === RegistrationType.STUDENT) {
+      keyboard.text('Учні', 'verification_queue:STUDENT').row()
+      continue
+    }
+
+    keyboard.text('Викладачі', 'verification_queue:TEACHER').row()
+  }
+
+  return keyboard
+}
+
+export function verificationDecisionKeyboard(userId: string) {
+  return new InlineKeyboard()
+    .text('Схвалити', `verification_approve:${userId}`)
+    .text('Відхилити', `verification_reject:${userId}`)
+}
+
+export function getRegistrationTypeLabel(type: RegistrationType) {
+  return type === RegistrationType.STUDENT ? 'учня' : 'викладача'
 }
 
 function truncateButtonText(text: string, maxLength = 30) {
@@ -198,4 +342,124 @@ export function confirmChatMemberRemovalKeyboard(chatId: string) {
   return new InlineKeyboard()
     .text('Підтвердити', `manage_kick:${chatId}:confirm`)
     .text('Скасувати', `manage_kick:${chatId}:cancel`)
+}
+
+export function chatManagementMembersKeyboard(params: {
+  chatId: string
+  action: 'role' | 'mute' | 'unmute' | 'kick'
+  page: number
+  hasPreviousPage: boolean
+  hasNextPage: boolean
+  members: Array<{
+    telegramUserId: bigint
+    fullName: string
+    username: string | null
+  }>
+}) {
+  const keyboard = new InlineKeyboard()
+
+  for (const member of params.members) {
+    const label = member.username ? `${member.fullName} (@${member.username})` : member.fullName
+    keyboard.text(
+      truncateButtonText(label),
+      `manage_member:${params.chatId}:${params.action}:${member.telegramUserId.toString()}:${params.page}`
+    ).row()
+  }
+
+  if (params.hasPreviousPage) {
+    keyboard.text('Назад', `manage_member_page:${params.chatId}:${params.action}:${params.page - 1}`)
+  }
+
+  if (params.hasNextPage) {
+    keyboard.text('Далі', `manage_member_page:${params.chatId}:${params.action}:${params.page + 1}`)
+  }
+
+  if (params.hasPreviousPage || params.hasNextPage) {
+    keyboard.row()
+  }
+
+  keyboard
+    .text('Вибрати вручну', `manage_member_manual:${params.chatId}:${params.action}`)
+    .row()
+    .text('До дій чату', `manage_action:${params.chatId}:back`)
+
+  return keyboard
+}
+
+export function attendanceChatsKeyboard(
+  chats: Array<{
+    id: string
+    title: string
+  }>
+) {
+  const keyboard = new InlineKeyboard()
+
+  for (const chat of chats) {
+    keyboard.text(truncateButtonText(chat.title), `attc:${chat.id}`).row()
+  }
+
+  return keyboard
+}
+
+export function attendanceDatePromptKeyboard(params: {
+  chatId: string
+  todayKey: string
+  yesterdayKey: string
+}) {
+  return new InlineKeyboard()
+    .text('Сьогодні', `attq:${params.chatId}:${params.todayKey}`)
+    .text('Вчора', `attq:${params.chatId}:${params.yesterdayKey}`)
+    .row()
+    .text('До списку гуртків', 'attb')
+}
+
+export function attendanceMarksKeyboard(params: {
+  chatId: string
+  dateKey: string
+  page: number
+  hasPreviousPage: boolean
+  hasNextPage: boolean
+  students: Array<{
+    telegramUserId: bigint
+    label: string
+    isPresent: boolean
+  }>
+}) {
+  const keyboard = new InlineKeyboard()
+
+  for (const student of params.students) {
+    const marker = student.isPresent ? '✅' : '⬜'
+    keyboard
+      .text(
+        truncateButtonText(`${marker} ${student.label}`, 28),
+        `attt:${params.chatId}:${params.dateKey}:${student.telegramUserId.toString()}:${params.page}`
+      )
+      .row()
+  }
+
+  if (params.hasPreviousPage) {
+    keyboard.text('Назад', `attp:${params.chatId}:${params.dateKey}:${params.page - 1}`)
+  }
+
+  if (params.hasNextPage) {
+    keyboard.text('Далі', `attp:${params.chatId}:${params.dateKey}:${params.page + 1}`)
+  }
+
+  if (params.hasPreviousPage || params.hasNextPage) {
+    keyboard.row()
+  }
+
+  keyboard
+    .text('Інша дата', `attd:${params.chatId}`)
+    .row()
+    .text('До списку гуртків', 'attb')
+
+  return keyboard
+}
+
+export function attendanceEmptyKeyboard(chatId: string) {
+  return new InlineKeyboard()
+    .text('Інша дата', `attd:${chatId}`)
+    .row()
+    .text('До списку гуртків', 'attb')
 }

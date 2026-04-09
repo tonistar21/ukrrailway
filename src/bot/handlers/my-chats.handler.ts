@@ -1,6 +1,5 @@
 import { BotContext } from '../context.js'
-import { mainMenuKeyboard } from '../keyboards.js'
-import { ensureBotAccess } from '../access.js'
+import { ensureBotAccess, getMenuByUser } from '../access.js'
 import { deleteChatById, getChatsByCreator } from '../../services/chat.service.js'
 
 export async function handleMyChats(ctx: BotContext) {
@@ -33,7 +32,7 @@ export async function handleMyChats(ctx: BotContext) {
 
   if (refreshedChats.length === 0) {
     await ctx.reply('У вас поки немає створених чатів.', {
-      reply_markup: mainMenuKeyboard()
+      reply_markup: getMenuByUser(user)
     })
     return
   }
@@ -48,11 +47,11 @@ export async function handleMyChats(ctx: BotContext) {
         DISCONNECTED: 'відключений'
       }
 
-      return `${index + 1}. ${chat.title}\nСтатус: ${statusMap[chat.status]}\nГурток: ${chat.club}\nВікова група: ${chat.ageGroup}\nКонтакти: ${chat.contactInfo}\nTelegram chat ID: ${telegramId}`
+      return `${index + 1}. ${chat.title}\nСтатус: ${statusMap[chat.status]}\nГурток: ${chat.club}\nВікова група: ${chat.ageGroup}\nКонтакти: ${chat.contactInfo}\nTelegram ID чату: ${telegramId}`
     })
     .join('\n\n')
 
   await ctx.reply(text, {
-    reply_markup: mainMenuKeyboard()
+    reply_markup: getMenuByUser(user)
   })
 }

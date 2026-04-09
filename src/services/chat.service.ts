@@ -123,7 +123,32 @@ export async function getActiveChatByClub(club: string) {
   return prisma.chat.findFirst({
     where: {
       club,
-      status: ChatStatus.ACTIVE
+      status: ChatStatus.ACTIVE,
+      telegramChatId: {
+        not: null
+      }
+    },
+    include: {
+      createdBy: true
+    },
+    orderBy: {
+      createdAt: 'asc'
+    }
+  })
+}
+
+export async function getActiveChatByTeacherAndClub(params: {
+  createdByUserId: string
+  club: string
+}) {
+  return prisma.chat.findFirst({
+    where: {
+      createdByUserId: params.createdByUserId,
+      club: params.club,
+      status: ChatStatus.ACTIVE,
+      telegramChatId: {
+        not: null
+      }
     },
     include: {
       createdBy: true

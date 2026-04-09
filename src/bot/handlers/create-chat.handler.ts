@@ -1,19 +1,18 @@
+import { UserRole } from '@prisma/client'
 import { BotContext } from '../context.js'
 import {
   ageGroupKeyboard,
   clubKeyboard,
   connectChatKeyboard,
   contactChoiceKeyboard,
-  incompleteRegistrationKeyboard,
-  mainMenuKeyboard
+  incompleteRegistrationKeyboard
 } from '../keyboards.js'
 import {
   ensureBotAccess,
   getCurrentTelegramUser,
   getMenuByUser,
-  hasCompletedRegistration,
   replyIncompleteRegistrationMessage,
-  replyPendingAccessMessage
+  replyLimitedAccessMessage
 } from '../access.js'
 import { buildChatTitle } from '../utils/chat-title.js'
 import { createDraftChat } from '../../services/chat.service.js'
@@ -34,10 +33,20 @@ export async function startCreateChatFlow(ctx: BotContext) {
     return
   }
 
-  ctx.session.createChatStep = 'club'
-  ctx.session.createChatDraft = {}
+  ctx.session.createChatDraft = user.role === UserRole.TEACHER && user.teacherClub ? { club: user.teacherClub } : {}
   ctx.session.pendingDraftChatId = null
   ctx.session.pendingChatRequestId = null
+
+  if (user.role === UserRole.TEACHER && user.teacherClub) {
+    ctx.session.createChatStep = 'ageGroup'
+
+    await ctx.reply(`Ваш закріплений гурток: ${user.teacherClub}\n\nОберіть вікову групу:`, {
+      reply_markup: ageGroupKeyboard()
+    })
+    return
+  }
+
+  ctx.session.createChatStep = 'club'
 
   await ctx.reply('Оберіть гурток:', {
     reply_markup: clubKeyboard()
@@ -154,7 +163,7 @@ async function finalizeDraftChat(ctx: BotContext, userId: string, fullName: stri
   if (!club || !ageGroup || !contactInfo) {
     const user = await getCurrentTelegramUser(ctx)
     await ctx.reply('Дані створення чату неповні. Спробуйте ще раз.', {
-      reply_markup: user ? getMenuByUser(user) : mainMenuKeyboard()
+      reply_markup: user ? getMenuByUser(user) : undefined
     })
     ctx.session.createChatStep = 'idle'
     ctx.session.createChatDraft = {}
@@ -222,10 +231,14 @@ export async function handleCancel(ctx: BotContext) {
   ctx.session.pendingDraftChatId = null
   ctx.session.pendingChatRequestId = null
   ctx.session.profileDraft = {}
-  ctx.session.studentRegistrationDraft = {}
+  ctx.session.registrationDraft = {}
   ctx.session.chatManagementStep = 'idle'
   ctx.session.chatManagementDraft = {}
   ctx.session.pendingUserRequestId = null
+  ctx.session.eventStep = 'idle'
+  ctx.session.eventDraft = {}
+  ctx.session.attendanceStep = 'idle'
+  ctx.session.attendanceDraft = {}
 
   const user = await getCurrentTelegramUser(ctx)
   if (!user) {
@@ -235,13 +248,13 @@ export async function handleCancel(ctx: BotContext) {
     return
   }
 
-  if (!hasCompletedRegistration(user)) {
+  if (!user.registrationType) {
     await replyIncompleteRegistrationMessage(ctx, user)
     return
   }
 
-  if (user.role === 'USER') {
-    await replyPendingAccessMessage(ctx, user)
+  if (user.role === UserRole.USER) {
+    await replyLimitedAccessMessage(ctx, user)
     return
   }
 

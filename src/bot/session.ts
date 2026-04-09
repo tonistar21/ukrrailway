@@ -7,9 +7,13 @@ export function createInitialSession(): BotSession {
     pendingDraftChatId: null,
     pendingChatRequestId: null,
     profileDraft: {},
-    studentRegistrationDraft: {},
+    registrationDraft: {},
     chatManagementStep: 'idle',
     chatManagementDraft: {},
-    pendingUserRequestId: null
+    pendingUserRequestId: null,
+    eventStep: 'idle',
+    eventDraft: {},
+    attendanceStep: 'idle',
+    attendanceDraft: {}
   }
 }

@@ -1,6 +1,5 @@
 import { BotContext } from '../context.js'
-import { mainMenuKeyboard } from '../keyboards.js'
-import { ensureBotAccess } from '../access.js'
+import { ensureBotAccess, getMenuByUser } from '../access.js'
 import { buildChatDescription } from '../utils/chat-description.js'
 import { activateDraftChat, getChatByTelegramChatId, getDraftChatById } from '../../services/chat.service.js'
 
@@ -14,32 +13,32 @@ export async function handleChatShared(ctx: BotContext) {
     return
   }
 
+  const currentUser = await ensureBotAccess(ctx)
+  if (!currentUser) {
+    return
+  }
+
   const pendingDraftChatId = ctx.session.pendingDraftChatId
   const pendingChatRequestId = ctx.session.pendingChatRequestId
 
   if (!pendingDraftChatId || !pendingChatRequestId) {
     await ctx.reply('Немає активної чернетки для підключення.', {
-      reply_markup: mainMenuKeyboard()
+      reply_markup: getMenuByUser(currentUser)
     })
     return
   }
 
   if (shared.request_id !== pendingChatRequestId) {
     await ctx.reply('Невірний запит на підключення чату.', {
-      reply_markup: mainMenuKeyboard()
+      reply_markup: getMenuByUser(currentUser)
     })
-    return
-  }
-
-  const currentUser = await ensureBotAccess(ctx)
-  if (!currentUser) {
     return
   }
 
   const draftChat = await getDraftChatById(pendingDraftChatId)
   if (!draftChat) {
     await ctx.reply('Чернетку не знайдено.', {
-      reply_markup: mainMenuKeyboard()
+      reply_markup: getMenuByUser(currentUser)
     })
     ctx.session.pendingDraftChatId = null
     ctx.session.pendingChatRequestId = null
@@ -48,7 +47,7 @@ export async function handleChatShared(ctx: BotContext) {
 
   if (draftChat.createdByUserId !== currentUser.id) {
     await ctx.reply('Ця чернетка вам не належить.', {
-      reply_markup: mainMenuKeyboard()
+      reply_markup: getMenuByUser(currentUser)
     })
     ctx.session.pendingDraftChatId = null
     ctx.session.pendingChatRequestId = null
@@ -60,7 +59,7 @@ export async function handleChatShared(ctx: BotContext) {
 
   if (existingChat && existingChat.id !== draftChat.id) {
     await ctx.reply('Цей Telegram-чат уже прив’язаний до іншої картки.', {
-      reply_markup: mainMenuKeyboard()
+      reply_markup: getMenuByUser(currentUser)
     })
     return
   }
@@ -112,7 +111,7 @@ export async function handleChatShared(ctx: BotContext) {
   await ctx.reply(
     `Чат успішно підключено.\n\nНазва в системі: ${updatedChat.title}\nГурток: ${updatedChat.club}\nВікова група: ${updatedChat.ageGroup}\nКонтакти: ${updatedChat.contactInfo}\nСтатус: активний\n\n${syncLines}${extraText}`,
     {
-      reply_markup: mainMenuKeyboard()
+      reply_markup: getMenuByUser(currentUser)
     }
   )
 }

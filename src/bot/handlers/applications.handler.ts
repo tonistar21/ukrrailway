@@ -1,7 +1,7 @@
 import { StudentApplicationStatus, UserRole } from '@prisma/client'
 import { BotContext } from '../context.js'
-import { applicationsKeyboard, applicationDecisionKeyboard, mainMenuKeyboard } from '../keyboards.js'
-import { ensureBotAccess } from '../access.js'
+import { applicationsKeyboard, applicationDecisionKeyboard } from '../keyboards.js'
+import { ensureBotAccess, getMenuByUser } from '../access.js'
 import {
   approveApplication,
   getApplicationById,
@@ -24,13 +24,9 @@ export async function handleApplications(ctx: BotContext) {
     return
   }
 
-  if (
-    user.role !== UserRole.TEACHER &&
-    user.role !== UserRole.VICE_ADMIN &&
-    user.role !== UserRole.ADMIN
-  ) {
-    await ctx.reply('Розділ заявок доступний лише викладачам та адміністраторам.', {
-      reply_markup: mainMenuKeyboard()
+  if (user.role !== UserRole.TEACHER) {
+    await ctx.reply('Цей розділ призначений лише для викладачів. Заявки на верифікацію обробляються окремо.', {
+      reply_markup: getMenuByUser(user)
     })
     return
   }
@@ -38,7 +34,7 @@ export async function handleApplications(ctx: BotContext) {
   const applications = await getPendingApplicationsByTeacher(user.id)
 
   if (applications.length === 0) {
-    await ctx.reply('У вас немає нових заявок.', {
+    await ctx.reply('У вас немає нових заявок у гуртки.', {
       reply_markup: applicationsKeyboard()
     })
     return
@@ -78,6 +74,13 @@ export async function handleApproveApplication(ctx: BotContext) {
     return
   }
 
+  if (currentUser.role !== UserRole.TEACHER) {
+    await ctx.answerCallbackQuery({
+      text: 'Ці заявки обробляє лише викладач.'
+    })
+    return
+  }
+
   const application = await getApplicationById(applicationId)
 
   if (!application) {
@@ -87,7 +90,7 @@ export async function handleApproveApplication(ctx: BotContext) {
     return
   }
 
-  if (application.assignedTeacherUserId !== currentUser.id && currentUser.role === UserRole.TEACHER) {
+  if (application.assignedTeacherUserId !== currentUser.id) {
     await ctx.answerCallbackQuery({
       text: 'Ця заявка вам не належить.'
     })
@@ -115,7 +118,7 @@ export async function handleApproveApplication(ctx: BotContext) {
   try {
     await ctx.api.sendMessage(
       Number(approved.applicant.telegramUserId),
-      `Вашу заявку схвалено.\n\nГурток: ${approved.club}\nПосилання для вступу в групу:\n${inviteLink.invite_link}`
+      `Верифікацію завершено.\n\nГурток: ${approved.club}\nВикладач підтвердив вашу заявку.\nПосилання для вступу до групи:\n${inviteLink.invite_link}`
     )
   } catch {
     await ctx.reply(
@@ -131,7 +134,7 @@ export async function handleApproveApplication(ctx: BotContext) {
   })
 
   await ctx.reply(
-    `Заявку схвалено.\n\nПІБ: ${approved.fullName}\nГурток: ${approved.club}\nУчню надіслано посилання на вступ.`,
+    `Заявку схвалено.\n\nПІБ: ${approved.fullName}\nГурток: ${approved.club}\nУчня верифіковано, йому надіслано посилання на вступ до групи.`,
     {
       reply_markup: applicationsKeyboard()
     }
@@ -158,6 +161,13 @@ export async function handleRejectApplication(ctx: BotContext) {
     return
   }
 
+  if (currentUser.role !== UserRole.TEACHER) {
+    await ctx.answerCallbackQuery({
+      text: 'Ці заявки обробляє лише викладач.'
+    })
+    return
+  }
+
   const application = await getApplicationById(applicationId)
 
   if (!application) {
@@ -167,7 +177,7 @@ export async function handleRejectApplication(ctx: BotContext) {
     return
   }
 
-  if (application.assignedTeacherUserId !== currentUser.id && currentUser.role === UserRole.TEACHER) {
+  if (application.assignedTeacherUserId !== currentUser.id) {
     await ctx.answerCallbackQuery({
       text: 'Ця заявка вам не належить.'
     })
@@ -189,7 +199,7 @@ export async function handleRejectApplication(ctx: BotContext) {
   try {
     await ctx.api.sendMessage(
       Number(rejected.applicant.telegramUserId),
-      `Вашу заявку на гурток "${rejected.club}" відхилено. За деталями зверніться до викладача.`
+      `Верифікацію для гуртка "${rejected.club}" відхилено. За деталями зверніться до викладача.`
     )
   } catch {
     await ctx.reply('Заявку відхилено, але не вдалося надіслати повідомлення учню.', {

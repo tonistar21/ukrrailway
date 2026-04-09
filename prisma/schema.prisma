@@ -19,6 +19,18 @@ enum UserStatus {
   BLOCKED
 }
 
+enum RegistrationType {
+  STUDENT
+  TEACHER
+}
+
+enum VerificationStatus {
+  NOT_STARTED
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum ChatStatus {
   DRAFT
   ACTIVE
@@ -42,28 +54,41 @@ enum StudentApplicationStatus {
 }
 
 model User {
-  id                 String       @id @default(cuid())
-  telegramUserId     BigInt       @unique
-  username           String?
-  firstName          String
-  lastName           String?
-  fullName           String
-  role               UserRole     @default(USER)
-  status             UserStatus   @default(ACTIVE)
-  profileName        String?
-  profilePhone       String?
-  profileTelegramTag String?
-  studentFullName    String?
-  studentAge         Int?
-  studentCity        StudentCity?
-  studentClub        String?
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
+  id                           String                 @id @default(cuid())
+  telegramUserId               BigInt                 @unique
+  username                     String?
+  firstName                    String
+  lastName                     String?
+  fullName                     String
+  role                         UserRole               @default(USER)
+  status                       UserStatus             @default(ACTIVE)
+  registrationType             RegistrationType?
+  verificationStatus           VerificationStatus     @default(NOT_STARTED)
+  verificationRequestedAt      DateTime?
+  verificationReviewedAt       DateTime?
+  verificationReviewedByUserId String?
+  profileName                  String?
+  profilePhone                 String?
+  profileTelegramTag           String?
+  teacherCity                  StudentCity?
+  teacherClub                  String?
+  studentFullName              String?
+  studentAge                   Int?
+  studentCity                  StudentCity?
+  studentClub                  String?
+  createdAt                    DateTime               @default(now())
+  updatedAt                    DateTime               @updatedAt
 
-  createdChats       Chat[]       @relation("ChatCreator")
-  assignedApplications StudentApplication[] @relation("AssignedTeacherApplications")
-  reviewedApplications StudentApplication[] @relation("ReviewedApplications")
-  ownApplications    StudentApplication[] @relation("ApplicantApplications")
+  createdChats                 Chat[]                 @relation("ChatCreator")
+  createdEvents                Event[]                @relation("EventCreator")
+  assignedApplications         StudentApplication[]   @relation("AssignedTeacherApplications")
+  reviewedApplications         StudentApplication[]   @relation("ReviewedApplications")
+  ownApplications              StudentApplication[]   @relation("ApplicantApplications")
+  verificationReviewedBy       User?                  @relation("UserVerificationReviews", fields: [verificationReviewedByUserId], references: [id], onDelete: SetNull)
+  reviewedVerificationUsers    User[]                 @relation("UserVerificationReviews")
+
+  @@index([registrationType, verificationStatus])
+  @@index([verificationReviewedByUserId])
 }
 
 model Chat {
@@ -80,6 +105,29 @@ model Chat {
 
   createdBy       User        @relation("ChatCreator", fields: [createdByUserId], references: [id], onDelete: Cascade)
   applications    StudentApplication[]
+  participants    ChatParticipant[]
+  eventDeliveries EventDelivery[]
+  attendanceSessions AttendanceSession[]
+}
+
+model ChatParticipant {
+  id             String   @id @default(cuid())
+  chatId         String
+  telegramUserId BigInt
+  username       String?
+  firstName      String
+  lastName       String?
+  fullName       String
+  isBot          Boolean  @default(false)
+  isInChat       Boolean  @default(true)
+  lastSeenAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  chat           Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@unique([chatId, telegramUserId])
+  @@index([chatId, isInChat, fullName])
 }
 
 model StudentApplication {
@@ -104,4 +152,69 @@ model StudentApplication {
 
   @@index([assignedTeacherUserId, status])
   @@index([applicantUserId, status])
+}
+
+model Event {
+  id              String          @id @default(cuid())
+  createdByUserId String
+  title           String
+  text            String
+  photoFileId     String?
+  scheduledFor    DateTime
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  createdBy       User            @relation("EventCreator", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  deliveries      EventDelivery[]
+
+  @@index([createdByUserId, scheduledFor])
+}
+
+model EventDelivery {
+  id                   String    @id @default(cuid())
+  eventId              String
+  chatId               String
+  messageId            Int
+  sentAt               DateTime  @default(now())
+  pinnedAt             DateTime?
+  reminderDaySentAt    DateTime?
+  reminderHourSentAt   DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  event                Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  chat                 Chat      @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, chatId])
+  @@index([chatId, sentAt])
+  @@index([reminderDaySentAt, reminderHourSentAt])
+}
+
+model AttendanceSession {
+  id          String             @id @default(cuid())
+  chatId       String
+  sessionDate  DateTime
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  chat         Chat              @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  records      AttendanceRecord[]
+
+  @@unique([chatId, sessionDate])
+  @@index([chatId, sessionDate])
+}
+
+model AttendanceRecord {
+  id                  String            @id @default(cuid())
+  attendanceSessionId String
+  telegramUserId      BigInt
+  isPresent           Boolean           @default(false)
+  markedAt            DateTime?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  attendanceSession   AttendanceSession @relation(fields: [attendanceSessionId], references: [id], onDelete: Cascade)
+
+  @@unique([attendanceSessionId, telegramUserId])
+  @@index([attendanceSessionId, isPresent])
 }

@@ -2,6 +2,7 @@ import { Context, SessionFlavor } from 'grammy'
 
 export type CreateChatStep =
   | 'idle'
+  | 'registrationType'
   | 'club'
   | 'ageGroup'
   | 'contactChoice'
@@ -12,7 +13,19 @@ export type CreateChatStep =
   | 'studentFullName'
   | 'studentAge'
   | 'studentCity'
+  | 'teacherName'
+  | 'teacherPhone'
+  | 'teacherCity'
+  | 'teacherClub'
+  | 'teacherTelegramTag'
   | 'studentClub'
+
+export type EventStep =
+  | 'idle'
+  | 'title'
+  | 'text'
+  | 'photo'
+  | 'scheduledFor'
 
 export type ChatManagementStep =
   | 'idle'
@@ -23,6 +36,10 @@ export type ChatManagementStep =
   | 'awaitingKickUser'
   | 'awaitingTitle'
   | 'awaitingDescription'
+
+export type AttendanceStep =
+  | 'idle'
+  | 'awaitingDate'
 
 export interface CreateChatDraft {
   club?: string
@@ -36,11 +53,16 @@ export interface ProfileDraft {
   profileTelegramTag?: string
 }
 
-export interface StudentRegistrationDraft {
+export interface RegistrationDraft {
+  registrationType?: 'STUDENT' | 'TEACHER'
   fullName?: string
   age?: number
   city?: string
   club?: string
+  profileName?: string
+  profilePhone?: string
+  profileTelegramTag?: string
+  teacherCity?: string
 }
 
 export interface ChatManagementDraft {
@@ -49,16 +71,33 @@ export interface ChatManagementDraft {
   targetUserLabel?: string
 }
 
+export interface EventDraft {
+  title?: string
+  text?: string
+  photoFileId?: string
+  scheduledFor?: string
+  selectedEventId?: string
+}
+
+export interface AttendanceDraft {
+  chatId?: string
+  date?: string
+}
+
 export interface BotSession {
   createChatStep: CreateChatStep
   createChatDraft: CreateChatDraft
   pendingDraftChatId: string | null
   pendingChatRequestId: number | null
   profileDraft: ProfileDraft
-  studentRegistrationDraft: StudentRegistrationDraft
+  registrationDraft: RegistrationDraft
   chatManagementStep: ChatManagementStep
   chatManagementDraft: ChatManagementDraft
   pendingUserRequestId: number | null
+  eventStep: EventStep
+  eventDraft: EventDraft
+  attendanceStep: AttendanceStep
+  attendanceDraft: AttendanceDraft
 }
 
 export type BotContext = Context & SessionFlavor<BotSession>

@@ -1,6 +1,5 @@
 import { BotContext } from '../context.js'
-import { mainMenuKeyboard } from '../keyboards.js'
-import { ensureBotAccess } from '../access.js'
+import { ensureBotAccess, getMenuByUser } from '../access.js'
 
 export async function handleAccounts(ctx: BotContext) {
   const currentUser = await ensureBotAccess(ctx)
@@ -9,6 +8,6 @@ export async function handleAccounts(ctx: BotContext) {
   }
 
   await ctx.reply('Керування ролями перенесено у веб-панель адміністратора.', {
-    reply_markup: mainMenuKeyboard()
+    reply_markup: getMenuByUser(currentUser)
   })
 }

@@ -1,12 +1,13 @@
-import { UserStatus } from '@prisma/client'
+import { UserStatus, VerificationStatus } from '@prisma/client'
 import { BotContext } from '../context.js'
 import {
   getCurrentTelegramUser,
   getMenuByUser,
   hasBotAccess,
-  hasCompletedRegistration,
+  isApprovedStudent,
   replyIncompleteRegistrationMessage,
-  replyLimitedAccessMessage
+  replyLimitedAccessMessage,
+  replyPendingAccessMessage
 } from '../access.js'
 import { upsertTelegramUser } from '../../services/user.service.js'
 
@@ -27,18 +28,47 @@ export async function handleStart(ctx: BotContext) {
   ctx.session.pendingDraftChatId = null
   ctx.session.pendingChatRequestId = null
   ctx.session.profileDraft = {}
-  ctx.session.studentRegistrationDraft = {}
+  ctx.session.registrationDraft = {}
   ctx.session.chatManagementStep = 'idle'
   ctx.session.chatManagementDraft = {}
   ctx.session.pendingUserRequestId = null
+  ctx.session.eventStep = 'idle'
+  ctx.session.eventDraft = {}
+  ctx.session.attendanceStep = 'idle'
+  ctx.session.attendanceDraft = {}
 
   if (user.status === UserStatus.BLOCKED) {
     await ctx.reply('Ваш обліковий запис заблоковано. Зверніться до адміністратора.')
     return
   }
 
-  if (!hasCompletedRegistration(user)) {
+  if (hasBotAccess(user.role)) {
+    await ctx.reply(
+      `Вітаю, ${ctx.from.first_name}.\n\nЦе система керування навчальними чатами.\nОберіть дію в меню нижче.`,
+      {
+        reply_markup: getMenuByUser(user)
+      }
+    )
+    return
+  }
+
+  if (!user.registrationType) {
     await replyIncompleteRegistrationMessage(ctx, user)
+    return
+  }
+
+  if (isApprovedStudent(user)) {
+    await ctx.reply(
+      `Вітаю, ${ctx.from.first_name}.\n\nВаш статус: верифікований учень.\nОберіть дію в меню нижче.`,
+      {
+        reply_markup: getMenuByUser(user)
+      }
+    )
+    return
+  }
+
+  if (user.verificationStatus === VerificationStatus.PENDING) {
+    await replyPendingAccessMessage(ctx, user)
     return
   }
 
@@ -46,13 +76,6 @@ export async function handleStart(ctx: BotContext) {
     await replyLimitedAccessMessage(ctx, user)
     return
   }
-
-  await ctx.reply(
-    `Вітаю, ${ctx.from.first_name}.\n\nЦе система керування навчальними чатами.\nОберіть дію в меню нижче.`,
-    {
-      reply_markup: getMenuByUser(user)
-    }
-  )
 }
 
 export async function handleAccessStatus(ctx: BotContext) {
@@ -68,17 +91,29 @@ export async function handleAccessStatus(ctx: BotContext) {
     return
   }
 
-  if (!hasCompletedRegistration(user)) {
+  if (hasBotAccess(user.role)) {
+    await ctx.reply(`Доступ активовано. Поточний статус: ${user.role}.`, {
+      reply_markup: getMenuByUser(user)
+    })
+    return
+  }
+
+  if (!user.registrationType) {
     await replyIncompleteRegistrationMessage(ctx, user)
     return
   }
 
-  if (!hasBotAccess(user.role)) {
+  if (user.verificationStatus === VerificationStatus.PENDING) {
+    await replyPendingAccessMessage(ctx, user)
+    return
+  }
+
+  if (!isApprovedStudent(user)) {
     await replyLimitedAccessMessage(ctx, user)
     return
   }
 
-  await ctx.reply(`Доступ активовано. Ваша роль: ${user.role}.`, {
+  await ctx.reply('Ваш статус: верифікований учень.', {
     reply_markup: getMenuByUser(user)
   })
 }

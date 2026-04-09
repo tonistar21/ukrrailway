@@ -1,8 +1,10 @@
 import { ChatStatus, UserRole, type Chat, type User } from '@prisma/client'
+import { InlineKeyboard } from 'grammy'
 import { BotContext } from '../context.js'
-import { ensureBotAccess, getMenuByUserRole } from '../access.js'
+import { ensureBotAccess, getCurrentTelegramUser, getMenuByUser, getMenuByUserRole } from '../access.js'
 import {
   chatManagementActionsKeyboard,
+  chatManagementMembersKeyboard,
   chatManagementChatsKeyboard,
   confirmChatMemberRemovalKeyboard,
   mainMenuKeyboard,
@@ -15,8 +17,14 @@ import {
   getChatById,
   updateChatTitleById
 } from '../../services/chat.service.js'
+import { getChatParticipantsPage } from '../../services/chat-participant.service.js'
 
 type ManageableChat = Chat & { createdBy: User }
+type SelectedChat = {
+  user: User
+  chat: ManageableChat
+}
+type MemberSelectionAction = 'role' | 'mute' | 'unmute' | 'kick'
 
 const MUTED_CHAT_PERMISSIONS = {
   can_send_messages: false,
@@ -35,6 +43,8 @@ const MUTED_CHAT_PERMISSIONS = {
   can_pin_messages: false,
   can_manage_topics: false
 } as const
+
+const MEMBER_PAGE_SIZE = 8
 
 const FULL_CHAT_PERMISSIONS = {
   can_send_messages: true,
@@ -69,8 +79,10 @@ function resetChatManagementState(ctx: BotContext, chatId?: string) {
 }
 
 async function restoreBotMenu(ctx: BotContext, role: UserRole, text = 'Кнопки бота знову доступні нижче.') {
+  const currentUser = await getCurrentTelegramUser(ctx)
+
   await ctx.reply(text, {
-    reply_markup: getMenuByUserRole(role)
+    reply_markup: currentUser ? getMenuByUser(currentUser) : getMenuByUserRole(role)
   })
 }
 
@@ -82,7 +94,7 @@ function buildChatManagementText(chat: ManageableChat) {
     `Гурток: ${chat.club}`,
     `Вікова група: ${chat.ageGroup}`,
     `Контакти: ${chat.contactInfo}`,
-    `Telegram chat ID: ${telegramId}`
+    `Telegram ID чату: ${telegramId}`
   ].join('\n')
 }
 
@@ -103,6 +115,38 @@ function buildUserLabel(params: {
   }
 
   return `ID ${params.userId}`
+}
+
+function getMemberSelectionPrompt(action: MemberSelectionAction) {
+  if (action === 'role') {
+    return 'Оберіть учасника, якому потрібно задати роль або тег:'
+  }
+
+  if (action === 'mute') {
+    return 'Оберіть учасника, якого потрібно замутити:'
+  }
+
+  if (action === 'unmute') {
+    return 'Оберіть учасника, з якого потрібно зняти мут:'
+  }
+
+  return 'Оберіть учасника, якого потрібно видалити з чату:'
+}
+
+function getChatManagementStepByAction(action: MemberSelectionAction) {
+  if (action === 'role') {
+    return 'awaitingRoleUser' as const
+  }
+
+  if (action === 'mute') {
+    return 'awaitingMuteUser' as const
+  }
+
+  if (action === 'unmute') {
+    return 'awaitingUnmuteUser' as const
+  }
+
+  return 'awaitingKickUser' as const
 }
 
 async function getManageableChats(userId: string, role: UserRole) {
@@ -144,7 +188,7 @@ async function replyWithChatList(
   if (chats.length === 0) {
     resetChatManagementState(ctx)
     await ctx.reply('Немає активних підключених чатів, якими ви можете керувати.', {
-      reply_markup: mainMenuKeyboard()
+      reply_markup: mainMenuKeyboard(params.role)
     })
     return
   }
@@ -178,6 +222,76 @@ async function replyWithChatActions(
   })
 }
 
+async function replyWithMemberSelection(
+  ctx: BotContext,
+  params: {
+    chat: ManageableChat
+    role: UserRole
+    action: MemberSelectionAction
+    page?: number
+    prefixText?: string
+  }
+) {
+  const page = Math.max(0, params.page ?? 0)
+  const { participants, total } = await getChatParticipantsPage({
+    chatId: params.chat.id,
+    page,
+    pageSize: MEMBER_PAGE_SIZE
+  })
+
+  ctx.session.chatManagementStep = getChatManagementStepByAction(params.action)
+  ctx.session.chatManagementDraft = {
+    chatId: params.chat.id
+  }
+  ctx.session.pendingUserRequestId = null
+
+  const introLines = []
+
+  if (params.prefixText) {
+    introLines.push(params.prefixText, '')
+  }
+
+  if (total === 0) {
+    await ctx.reply(
+      [
+        ...introLines,
+        getMemberSelectionPrompt(params.action),
+        '',
+        'Список учасників ще порожній.',
+        'Бот показує лише відомих йому учасників чату.',
+        'Якщо потрібної людини немає, скористайтеся ручним вибором нижче.'
+      ].join('\n'),
+      {
+        reply_markup: new InlineKeyboard()
+          .text('Вибрати вручну', `manage_member_manual:${params.chat.id}:${params.action}`)
+          .row()
+          .text('До дій чату', `manage_action:${params.chat.id}:back`)
+      }
+    )
+    await restoreBotMenu(ctx, params.role)
+    return
+  }
+
+  const totalPages = Math.ceil(total / MEMBER_PAGE_SIZE)
+  const pageLabel = `Сторінка ${page + 1} з ${totalPages}`
+
+  await ctx.reply(
+    [...introLines, getMemberSelectionPrompt(params.action), '', `Відомі учасники: ${total}`, pageLabel].join('\n'),
+    {
+      reply_markup: chatManagementMembersKeyboard({
+        chatId: params.chat.id,
+        action: params.action,
+        page,
+        hasPreviousPage: page > 0,
+        hasNextPage: (page + 1) * MEMBER_PAGE_SIZE < total,
+        members: participants
+      })
+    }
+  )
+
+  await restoreBotMenu(ctx, params.role)
+}
+
 async function getSelectedChatOrReply(ctx: BotContext) {
   const user = await ensureBotAccess(ctx)
   if (!user) {
@@ -203,12 +317,138 @@ async function getSelectedChatOrReply(ctx: BotContext) {
   if (!chat) {
     resetChatManagementState(ctx)
     await ctx.reply('Цей чат недоступний для керування або вже відключений.', {
-      reply_markup: mainMenuKeyboard()
+      reply_markup: mainMenuKeyboard(user.role)
     })
     return null
   }
 
   return { user, chat }
+}
+
+async function applySelectedChatMember(
+  ctx: BotContext,
+  params: {
+    selected: SelectedChat
+    targetUserId: number
+    userLabel: string
+  }
+) {
+  let member
+
+  try {
+    member = await ctx.api.getChatMember(Number(params.selected.chat.telegramChatId), params.targetUserId)
+  } catch {
+    resetChatManagementState(ctx, params.selected.chat.id)
+    await ctx.reply('Не вдалося знайти цього користувача в чаті. Переконайтеся, що він є учасником групи.', {
+      reply_markup: chatManagementActionsKeyboard(params.selected.chat.id)
+    })
+    await restoreBotMenu(ctx, params.selected.user.role)
+    return
+  }
+
+  if (member.status === 'left' || member.status === 'kicked') {
+    resetChatManagementState(ctx, params.selected.chat.id)
+    await ctx.reply('Цей користувач зараз не є учасником чату.', {
+      reply_markup: chatManagementActionsKeyboard(params.selected.chat.id)
+    })
+    await restoreBotMenu(ctx, params.selected.user.role)
+    return
+  }
+
+  if (member.status === 'creator') {
+    resetChatManagementState(ctx, params.selected.chat.id)
+    await ctx.reply('Власника чату не можна змінювати через бота.', {
+      reply_markup: chatManagementActionsKeyboard(params.selected.chat.id)
+    })
+    await restoreBotMenu(ctx, params.selected.user.role)
+    return
+  }
+
+  if (ctx.session.chatManagementStep === 'awaitingRoleUser') {
+    ctx.session.chatManagementStep = 'awaitingRoleTag'
+    ctx.session.pendingUserRequestId = null
+    ctx.session.chatManagementDraft = {
+      chatId: params.selected.chat.id,
+      targetUserId: params.targetUserId,
+      targetUserLabel: params.userLabel
+    }
+
+    await ctx.reply(
+      `Обрано учасника: ${params.userLabel}\n\nНадішліть текст ролі або тег до 16 символів. Щоб прибрати підпис, надішліть "-".`,
+      {
+        reply_markup: {
+          force_reply: true,
+          input_field_placeholder: 'Введіть роль або тег'
+        }
+      }
+    )
+    return
+  }
+
+  if (member.status === 'administrator') {
+    resetChatManagementState(ctx, params.selected.chat.id)
+    await ctx.reply('Для адміністратора ця дія недоступна через бота. Спочатку змініть його права в Telegram вручну.', {
+      reply_markup: chatManagementActionsKeyboard(params.selected.chat.id)
+    })
+    await restoreBotMenu(ctx, params.selected.user.role)
+    return
+  }
+
+  if (ctx.session.chatManagementStep === 'awaitingMuteUser') {
+    ctx.session.chatManagementStep = 'idle'
+    ctx.session.pendingUserRequestId = null
+    ctx.session.chatManagementDraft = {
+      chatId: params.selected.chat.id,
+      targetUserId: params.targetUserId,
+      targetUserLabel: params.userLabel
+    }
+
+    await ctx.reply(`Оберіть тривалість муту для ${params.userLabel}:`, {
+      reply_markup: muteDurationKeyboard(params.selected.chat.id)
+    })
+    return
+  }
+
+  if (ctx.session.chatManagementStep === 'awaitingUnmuteUser') {
+    try {
+      await ctx.api.restrictChatMember(
+        Number(params.selected.chat.telegramChatId),
+        params.targetUserId,
+        FULL_CHAT_PERMISSIONS,
+        {
+          use_independent_chat_permissions: true
+        }
+      )
+    } catch {
+      resetChatManagementState(ctx, params.selected.chat.id)
+      await ctx.reply(
+        'Не вдалося зняти мут. Переконайтеся, що бот має право обмежувати учасників у цьому чаті.',
+        {
+          reply_markup: chatManagementActionsKeyboard(params.selected.chat.id)
+        }
+      )
+      return
+    }
+
+    resetChatManagementState(ctx, params.selected.chat.id)
+    await replyWithChatActions(ctx, params.selected.chat, `Мут для ${params.userLabel} успішно знято.`)
+    await restoreBotMenu(ctx, params.selected.user.role)
+    return
+  }
+
+  if (ctx.session.chatManagementStep === 'awaitingKickUser') {
+    ctx.session.chatManagementStep = 'idle'
+    ctx.session.pendingUserRequestId = null
+    ctx.session.chatManagementDraft = {
+      chatId: params.selected.chat.id,
+      targetUserId: params.targetUserId,
+      targetUserLabel: params.userLabel
+    }
+
+    await ctx.reply(`Підтвердьте видалення ${params.userLabel} з чату.`, {
+      reply_markup: confirmChatMemberRemovalKeyboard(params.selected.chat.id)
+    })
+  }
 }
 
 export async function handleChatManagement(ctx: BotContext) {
@@ -253,7 +493,7 @@ export async function handleChatManagementChatSelection(ctx: BotContext) {
   if (!chat) {
     resetChatManagementState(ctx)
     await ctx.reply('Не вдалося відкрити керування цим чатом.', {
-      reply_markup: mainMenuKeyboard()
+      reply_markup: mainMenuKeyboard(user.role)
     })
     return
   }
@@ -294,7 +534,7 @@ export async function handleChatManagementAction(ctx: BotContext) {
   if (!chat) {
     resetChatManagementState(ctx)
     await ctx.reply('Не вдалося знайти цей чат для керування.', {
-      reply_markup: mainMenuKeyboard()
+      reply_markup: mainMenuKeyboard(user.role)
     })
     return
   }
@@ -311,45 +551,37 @@ export async function handleChatManagementAction(ctx: BotContext) {
   }
 
   if (action === 'role') {
-    const requestId = createUserRequestId()
-    ctx.session.chatManagementStep = 'awaitingRoleUser'
-    ctx.session.pendingUserRequestId = requestId
-
-    await ctx.reply('Оберіть учасника, якому потрібно задати роль або тег:', {
-      reply_markup: selectChatMemberKeyboard(requestId)
+    await replyWithMemberSelection(ctx, {
+      chat,
+      role: user.role,
+      action: 'role'
     })
     return
   }
 
   if (action === 'mute') {
-    const requestId = createUserRequestId()
-    ctx.session.chatManagementStep = 'awaitingMuteUser'
-    ctx.session.pendingUserRequestId = requestId
-
-    await ctx.reply('Оберіть учасника, якого потрібно замутити:', {
-      reply_markup: selectChatMemberKeyboard(requestId)
+    await replyWithMemberSelection(ctx, {
+      chat,
+      role: user.role,
+      action: 'mute'
     })
     return
   }
 
   if (action === 'unmute') {
-    const requestId = createUserRequestId()
-    ctx.session.chatManagementStep = 'awaitingUnmuteUser'
-    ctx.session.pendingUserRequestId = requestId
-
-    await ctx.reply('Оберіть учасника, з якого потрібно зняти мут:', {
-      reply_markup: selectChatMemberKeyboard(requestId)
+    await replyWithMemberSelection(ctx, {
+      chat,
+      role: user.role,
+      action: 'unmute'
     })
     return
   }
 
   if (action === 'kick') {
-    const requestId = createUserRequestId()
-    ctx.session.chatManagementStep = 'awaitingKickUser'
-    ctx.session.pendingUserRequestId = requestId
-
-    await ctx.reply('Оберіть учасника, якого потрібно видалити з чату:', {
-      reply_markup: selectChatMemberKeyboard(requestId)
+    await replyWithMemberSelection(ctx, {
+      chat,
+      role: user.role,
+      action: 'kick'
     })
     return
   }
@@ -376,6 +608,150 @@ export async function handleChatManagementAction(ctx: BotContext) {
       }
     })
   }
+}
+
+export async function handleChatManagementMemberPage(ctx: BotContext) {
+  const selected = await getSelectedChatOrReply(ctx)
+  if (!selected) {
+    await ctx.answerCallbackQuery()
+    return
+  }
+
+  const data = ctx.callbackQuery?.data
+  if (!data?.startsWith('manage_member_page:')) {
+    return
+  }
+
+  const [, chatId, action, pageRaw] = data.split(':')
+
+  await ctx.answerCallbackQuery()
+
+  if (
+    !chatId ||
+    !action ||
+    !pageRaw ||
+    selected.chat.id !== chatId ||
+    !['role', 'mute', 'unmute', 'kick'].includes(action)
+  ) {
+    await ctx.reply('Не вдалося відкрити сторінку зі списком учасників.', {
+      reply_markup: chatManagementActionsKeyboard(selected.chat.id)
+    })
+    await restoreBotMenu(ctx, selected.user.role)
+    return
+  }
+
+  await replyWithMemberSelection(ctx, {
+    chat: selected.chat,
+    role: selected.user.role,
+    action: action as MemberSelectionAction,
+    page: Math.max(0, Number(pageRaw) || 0)
+  })
+}
+
+export async function handleChatManagementMemberManualSelection(ctx: BotContext) {
+  const selected = await getSelectedChatOrReply(ctx)
+  if (!selected) {
+    await ctx.answerCallbackQuery()
+    return
+  }
+
+  const data = ctx.callbackQuery?.data
+  if (!data?.startsWith('manage_member_manual:')) {
+    return
+  }
+
+  const [, chatId, action] = data.split(':')
+
+  await ctx.answerCallbackQuery()
+
+  if (
+    !chatId ||
+    !action ||
+    selected.chat.id !== chatId ||
+    !['role', 'mute', 'unmute', 'kick'].includes(action)
+  ) {
+    await ctx.reply('Не вдалося відкрити ручний вибір учасника.', {
+      reply_markup: chatManagementActionsKeyboard(selected.chat.id)
+    })
+    await restoreBotMenu(ctx, selected.user.role)
+    return
+  }
+
+  const requestId = createUserRequestId()
+  ctx.session.chatManagementStep = getChatManagementStepByAction(action as MemberSelectionAction)
+  ctx.session.pendingUserRequestId = requestId
+  ctx.session.chatManagementDraft = {
+    chatId: selected.chat.id
+  }
+
+  await ctx.reply('Оберіть учасника вручну через Telegram:', {
+    reply_markup: selectChatMemberKeyboard(requestId)
+  })
+}
+
+export async function handleChatManagementMemberSelection(ctx: BotContext) {
+  const selected = await getSelectedChatOrReply(ctx)
+  if (!selected) {
+    await ctx.answerCallbackQuery()
+    return
+  }
+
+  const data = ctx.callbackQuery?.data
+  if (!data?.startsWith('manage_member:')) {
+    return
+  }
+
+  const [, chatId, action, targetUserIdRaw, pageRaw] = data.split(':')
+
+  await ctx.answerCallbackQuery()
+
+  if (
+    !chatId ||
+    !action ||
+    !targetUserIdRaw ||
+    selected.chat.id !== chatId ||
+    !['role', 'mute', 'unmute', 'kick'].includes(action)
+  ) {
+    await ctx.reply('Не вдалося обрати цього учасника.', {
+      reply_markup: chatManagementActionsKeyboard(selected.chat.id)
+    })
+    await restoreBotMenu(ctx, selected.user.role)
+    return
+  }
+
+  const targetUserId = Number(targetUserIdRaw)
+
+  if (!Number.isSafeInteger(targetUserId)) {
+    await ctx.reply('Некоректний ідентифікатор учасника.', {
+      reply_markup: chatManagementActionsKeyboard(selected.chat.id)
+    })
+    await restoreBotMenu(ctx, selected.user.role)
+    return
+  }
+
+  ctx.session.chatManagementStep = getChatManagementStepByAction(action as MemberSelectionAction)
+
+  const page = Math.max(0, Number(pageRaw) || 0)
+  const { participants } = await getChatParticipantsPage({
+    chatId: selected.chat.id,
+    page,
+    pageSize: MEMBER_PAGE_SIZE
+  })
+  const participant = participants.find((item: (typeof participants)[number]) => Number(item.telegramUserId) === targetUserId)
+  const userLabel = participant
+    ? buildUserLabel({
+        firstName: participant.firstName,
+        lastName: participant.lastName ?? undefined,
+        username: participant.username ?? undefined,
+        userId: targetUserId
+      })
+    : `ID ${targetUserId}`
+
+  await applySelectedChatMember(ctx, {
+    selected,
+    targetUserId,
+    userLabel
+  })
 }
 
 export async function handleChatManagementUsersShared(ctx: BotContext) {
@@ -410,37 +786,6 @@ export async function handleChatManagementUsersShared(ctx: BotContext) {
     return
   }
 
-  let member
-
-  try {
-    member = await ctx.api.getChatMember(Number(selected.chat.telegramChatId), sharedUser.user_id)
-  } catch {
-    resetChatManagementState(ctx, selected.chat.id)
-    await ctx.reply('Не вдалося знайти цього користувача в чаті. Переконайтеся, що він є учасником групи.', {
-      reply_markup: chatManagementActionsKeyboard(selected.chat.id)
-    })
-    await restoreBotMenu(ctx, selected.user.role)
-    return
-  }
-
-  if (member.status === 'left' || member.status === 'kicked') {
-    resetChatManagementState(ctx, selected.chat.id)
-    await ctx.reply('Цей користувач зараз не є учасником чату.', {
-      reply_markup: chatManagementActionsKeyboard(selected.chat.id)
-    })
-    await restoreBotMenu(ctx, selected.user.role)
-    return
-  }
-
-  if (member.status === 'creator') {
-    resetChatManagementState(ctx, selected.chat.id)
-    await ctx.reply('Власника чату не можна змінювати через бота.', {
-      reply_markup: chatManagementActionsKeyboard(selected.chat.id)
-    })
-    await restoreBotMenu(ctx, selected.user.role)
-    return
-  }
-
   const userLabel = buildUserLabel({
     firstName: sharedUser.first_name,
     lastName: sharedUser.last_name,
@@ -448,86 +793,11 @@ export async function handleChatManagementUsersShared(ctx: BotContext) {
     userId: sharedUser.user_id
   })
 
-  if (ctx.session.chatManagementStep === 'awaitingRoleUser') {
-    ctx.session.chatManagementStep = 'awaitingRoleTag'
-    ctx.session.pendingUserRequestId = null
-    ctx.session.chatManagementDraft = {
-      chatId: selected.chat.id,
-      targetUserId: sharedUser.user_id,
-      targetUserLabel: userLabel
-    }
-
-    await ctx.reply(
-      `Обрано учасника: ${userLabel}\n\nНадішліть текст ролі або тег до 16 символів. Щоб прибрати підпис, надішліть "-".`,
-      {
-        reply_markup: {
-          force_reply: true,
-          input_field_placeholder: 'Введіть роль або тег'
-        }
-      }
-    )
-    return
-  }
-
-  if (member.status === 'administrator') {
-    resetChatManagementState(ctx, selected.chat.id)
-    await ctx.reply('Для адміністратора ця дія недоступна через бота. Спочатку змініть його права в Telegram вручну.', {
-      reply_markup: chatManagementActionsKeyboard(selected.chat.id)
-    })
-    await restoreBotMenu(ctx, selected.user.role)
-    return
-  }
-
-  if (ctx.session.chatManagementStep === 'awaitingMuteUser') {
-    ctx.session.chatManagementStep = 'idle'
-    ctx.session.pendingUserRequestId = null
-    ctx.session.chatManagementDraft = {
-      chatId: selected.chat.id,
-      targetUserId: sharedUser.user_id,
-      targetUserLabel: userLabel
-    }
-
-    await ctx.reply(`Оберіть тривалість муту для ${userLabel}:`, {
-      reply_markup: muteDurationKeyboard(selected.chat.id)
-    })
-    return
-  }
-
-  if (ctx.session.chatManagementStep === 'awaitingUnmuteUser') {
-    try {
-      await ctx.api.restrictChatMember(Number(selected.chat.telegramChatId), sharedUser.user_id, FULL_CHAT_PERMISSIONS, {
-        use_independent_chat_permissions: true
-      })
-    } catch {
-      resetChatManagementState(ctx, selected.chat.id)
-      await ctx.reply(
-        'Не вдалося зняти мут. Переконайтеся, що бот має право обмежувати учасників у цьому чаті.',
-        {
-          reply_markup: chatManagementActionsKeyboard(selected.chat.id)
-        }
-      )
-      return
-    }
-
-    resetChatManagementState(ctx, selected.chat.id)
-    await replyWithChatActions(ctx, selected.chat, `Мут для ${userLabel} успішно знято.`)
-    await restoreBotMenu(ctx, selected.user.role)
-    return
-  }
-
-  if (ctx.session.chatManagementStep === 'awaitingKickUser') {
-    ctx.session.chatManagementStep = 'idle'
-    ctx.session.pendingUserRequestId = null
-    ctx.session.chatManagementDraft = {
-      chatId: selected.chat.id,
-      targetUserId: sharedUser.user_id,
-      targetUserLabel: userLabel
-    }
-
-    await ctx.reply(`Підтвердьте видалення ${userLabel} з чату.`, {
-      reply_markup: confirmChatMemberRemovalKeyboard(selected.chat.id)
-    })
-  }
+  await applySelectedChatMember(ctx, {
+    selected,
+    targetUserId: sharedUser.user_id,
+    userLabel
+  })
 }
 
 export async function handleChatManagementMuteDuration(ctx: BotContext) {
