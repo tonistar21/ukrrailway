@@ -46,6 +46,22 @@ import {
   handleAttendanceToggle
 } from './handlers/attendance.handler.js'
 import {
+  handleGrades,
+  handleGradesChatSelection,
+  handleGradesDateSelection,
+  handleGradesExport,
+  handleGradesPageSelection,
+  handleGradesStudentSelection,
+  handleGradesTextInput,
+  handleGradesValueSelection
+} from './handlers/grades.handler.js'
+import {
+  handleCityTopCommand,
+  handleGroupCityTop,
+  handleGroupFeaturesCommand,
+  handleGroupFeaturesMenu
+} from './handlers/group-features.handler.js'
+import {
   handleEventCreateCallback,
   handleEventListCallback,
   handleEventPhotoInput,
@@ -91,6 +107,8 @@ bot.use(
 )
 
 bot.command('start', handleStart)
+bot.command('chat_tools', handleGroupFeaturesCommand)
+bot.command('city_top', handleCityTopCommand)
 
 bot.callbackQuery(/^club:/, handleClubSelection)
 bot.callbackQuery(/^age:/, handleAgeGroupSelection)
@@ -118,6 +136,17 @@ bot.callbackQuery(/^attt:/, handleAttendanceToggle)
 bot.callbackQuery(/^attf:/, handleAttendanceExport)
 bot.callbackQuery(/^attd:/, handleAttendanceChatSelection)
 bot.callbackQuery(/^attb$/, handleAttendance)
+bot.callbackQuery(/^grc:/, handleGradesChatSelection)
+bot.callbackQuery(/^grq:/, handleGradesDateSelection)
+bot.callbackQuery(/^grp:/, handleGradesPageSelection)
+bot.callbackQuery(/^grs:/, handleGradesStudentSelection)
+bot.callbackQuery(/^grm:/, handleGradesValueSelection)
+bot.callbackQuery(/^grx:/, handleGradesValueSelection)
+bot.callbackQuery(/^grf:/, handleGradesExport)
+bot.callbackQuery(/^grd:/, handleGradesChatSelection)
+bot.callbackQuery(/^grb$/, handleGrades)
+bot.callbackQuery(/^gft:/, handleGroupCityTop)
+bot.callbackQuery(/^gfm:/, handleGroupFeaturesMenu)
 bot.callbackQuery(/^event_open:/, handleOpenEvent)
 bot.callbackQuery(/^event_send:/, handleEventSendStart)
 bot.callbackQuery(/^(event_send_chat:|esc:)/, handleEventSendToChat)
@@ -134,6 +163,8 @@ bot.hears('Події', handleEventsHub)
 bot.hears('📅 Події', handleEventsHub)
 bot.hears('Журнал відвідуваності', handleAttendance)
 bot.hears('📘 Журнал відвідуваності', handleAttendance)
+bot.hears('Журнал оцінок', handleGrades)
+bot.hears('📝 Журнал оцінок', handleGrades)
 bot.hears('Створити подію', startEventCreation)
 bot.hears('🗓️ Створити подію', startEventCreation)
 bot.hears('Оновити події', handleEventsHub)
@@ -193,6 +224,11 @@ bot.on('message:text', async (ctx, next) => {
 
   const attendanceHandled = await handleAttendanceTextInput(ctx)
   if (attendanceHandled) {
+    return
+  }
+
+  const gradesHandled = await handleGradesTextInput(ctx)
+  if (gradesHandled) {
     return
   }
 

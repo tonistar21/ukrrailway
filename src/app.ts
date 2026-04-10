@@ -12,6 +12,39 @@ async function bootstrap() {
     rights: fullGroupAdministratorRights
   })
 
+  await Promise.all([
+    bot.api.setMyCommands(
+      [
+        {
+          command: 'start',
+          description: 'Відкрити бота в особистих повідомленнях'
+        }
+      ],
+      {
+        scope: {
+          type: 'all_private_chats'
+        }
+      }
+    ),
+    bot.api.setMyCommands(
+      [
+        {
+          command: 'chat_tools',
+          description: 'Відкрити функції цього групового чату'
+        },
+        {
+          command: 'city_top',
+          description: 'Показати топ учнів міста за оцінками'
+        }
+      ],
+      {
+        scope: {
+          type: 'all_group_chats'
+        }
+      }
+    )
+  ])
+
   const app = createHttpServer()
 
   app.listen(env.PORT, () => {

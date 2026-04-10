@@ -8,6 +8,8 @@ export function managerMenuKeyboard() {
     .text('🗂️ Мої чати')
     .row()
     .text('📘 Журнал відвідуваності')
+    .text('📝 Журнал оцінок')
+    .row()
     .text('🛠️ Керування чатами')
     .row()
     .text('🛡️ Верифікація викладачів')
@@ -29,9 +31,11 @@ export function teacherMenuKeyboard(canVerifyStudents = false) {
     .text('📅 Події')
     .text('📘 Журнал відвідуваності')
     .row()
+    .text('📝 Журнал оцінок')
+    .text('👤 Профіль')
+    .row()
 
   return keyboard
-    .text('👤 Профіль')
     .persistent()
     .resized()
 }
@@ -466,4 +470,127 @@ export function attendanceEmptyKeyboard(chatId: string, dateKey: string) {
     .text('📅 Інша дата', `attd:${chatId}`)
     .row()
     .text('↩️ До списку гуртків', 'attb')
+}
+
+export function gradeChatsKeyboard(
+  chats: Array<{
+    id: string
+    title: string
+  }>
+) {
+  const keyboard = new InlineKeyboard()
+
+  for (const chat of chats) {
+    keyboard.text(truncateButtonText(chat.title), `grc:${chat.id}`).row()
+  }
+
+  return keyboard
+}
+
+export function gradeDatePromptKeyboard(params: {
+  chatId: string
+  todayKey: string
+  yesterdayKey: string
+}) {
+  return new InlineKeyboard()
+    .text('📍 Сьогодні', `grq:${params.chatId}:${params.todayKey}`)
+    .text('🕘 Вчора', `grq:${params.chatId}:${params.yesterdayKey}`)
+    .row()
+    .text('↩️ До списку гуртків', 'grb')
+}
+
+export function gradeMarksKeyboard(params: {
+  chatId: string
+  dateKey: string
+  page: number
+  hasPreviousPage: boolean
+  hasNextPage: boolean
+  students: Array<{
+    telegramUserId: bigint
+    label: string
+    grade: number | null
+  }>
+}) {
+  const keyboard = new InlineKeyboard()
+
+  for (const student of params.students) {
+    const marker = student.grade === null ? '⬜' : `🟩 ${student.grade}`
+    keyboard
+      .text(
+        truncateButtonText(`${marker} ${student.label}`, 28),
+        `grs:${params.chatId}:${params.dateKey}:${student.telegramUserId.toString()}:${params.page}`
+      )
+      .row()
+  }
+
+  if (params.hasPreviousPage) {
+    keyboard.text('Назад', `grp:${params.chatId}:${params.dateKey}:${params.page - 1}`)
+  }
+
+  if (params.hasNextPage) {
+    keyboard.text('Далі', `grp:${params.chatId}:${params.dateKey}:${params.page + 1}`)
+  }
+
+  if (params.hasPreviousPage || params.hasNextPage) {
+    keyboard.row()
+  }
+
+  keyboard
+    .text('📄 XLSX за місяць', `grf:${params.chatId}:${params.dateKey}`)
+    .row()
+    .text('📅 Інша дата', `grd:${params.chatId}`)
+    .row()
+    .text('↩️ До списку гуртків', 'grb')
+
+  return keyboard
+}
+
+export function gradeValueKeyboard(params: {
+  chatId: string
+  dateKey: string
+  telegramUserId: bigint
+  page: number
+  currentGrade: number | null
+}) {
+  const keyboard = new InlineKeyboard()
+
+  for (let grade = 1; grade <= 12; grade += 1) {
+    const label = params.currentGrade === grade ? `• ${grade}` : String(grade)
+    keyboard.text(
+      label,
+      `grm:${params.chatId}:${params.dateKey}:${params.telegramUserId.toString()}:${grade}:${params.page}`
+    )
+
+    if (grade % 3 === 0) {
+      keyboard.row()
+    }
+  }
+
+  keyboard
+    .text('🧹 Очистити', `grx:${params.chatId}:${params.dateKey}:${params.telegramUserId.toString()}:${params.page}`)
+    .row()
+    .text('↩️ До журналу', `grp:${params.chatId}:${params.dateKey}:${params.page}`)
+
+  return keyboard
+}
+
+export function gradeEmptyKeyboard(chatId: string, dateKey: string) {
+  return new InlineKeyboard()
+    .text('📄 XLSX за місяць', `grf:${chatId}:${dateKey}`)
+    .row()
+    .text('📅 Інша дата', `grd:${chatId}`)
+    .row()
+    .text('↩️ До списку гуртків', 'grb')
+}
+
+export function groupFeaturesKeyboard(chatId: string) {
+  return new InlineKeyboard()
+    .text('🏆 Топ учнів міста', `gft:${chatId}`)
+}
+
+export function cityLeaderboardKeyboard(chatId: string) {
+  return new InlineKeyboard()
+    .text('🔄 Оновити топ', `gft:${chatId}`)
+    .row()
+    .text('↩️ До функцій чату', `gfm:${chatId}`)
 }

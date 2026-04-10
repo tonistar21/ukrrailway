@@ -178,6 +178,8 @@ export async function handleBackToMenu(ctx: BotContext) {
   ctx.session.eventDraft = {}
   ctx.session.attendanceStep = 'idle'
   ctx.session.attendanceDraft = {}
+  ctx.session.gradeStep = 'idle'
+  ctx.session.gradeDraft = {}
 
   const user = await getCurrentTelegramUser(ctx)
   if (!user) {

@@ -41,6 +41,10 @@ export type AttendanceStep =
   | 'idle'
   | 'awaitingDate'
 
+export type GradeStep =
+  | 'idle'
+  | 'awaitingDate'
+
 export interface CreateChatDraft {
   club?: string
   ageGroup?: string
@@ -85,6 +89,12 @@ export interface AttendanceDraft {
   exportMessageId?: number
 }
 
+export interface GradeDraft {
+  chatId?: string
+  date?: string
+  exportMessageId?: number
+}
+
 export interface BotSession {
   createChatStep: CreateChatStep
   createChatDraft: CreateChatDraft
@@ -99,6 +109,8 @@ export interface BotSession {
   eventDraft: EventDraft
   attendanceStep: AttendanceStep
   attendanceDraft: AttendanceDraft
+  gradeStep: GradeStep
+  gradeDraft: GradeDraft
 }
 
 export type BotContext = Context & SessionFlavor<BotSession>

@@ -36,6 +36,8 @@ export async function handleStart(ctx: BotContext) {
   ctx.session.eventDraft = {}
   ctx.session.attendanceStep = 'idle'
   ctx.session.attendanceDraft = {}
+  ctx.session.gradeStep = 'idle'
+  ctx.session.gradeDraft = {}
 
   if (user.status === UserStatus.BLOCKED) {
     await ctx.reply('Ваш обліковий запис заблоковано. Зверніться до адміністратора.')

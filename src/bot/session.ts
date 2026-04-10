@@ -14,6 +14,8 @@ export function createInitialSession(): BotSession {
     eventStep: 'idle',
     eventDraft: {},
     attendanceStep: 'idle',
-    attendanceDraft: {}
+    attendanceDraft: {},
+    gradeStep: 'idle',
+    gradeDraft: {}
   }
 }

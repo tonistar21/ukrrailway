@@ -108,6 +108,7 @@ model Chat {
   participants    ChatParticipant[]
   eventDeliveries EventDelivery[]
   attendanceSessions AttendanceSession[]
+  gradeSessions   GradeSession[]
 }
 
 model ChatParticipant {
@@ -217,4 +218,33 @@ model AttendanceRecord {
 
   @@unique([attendanceSessionId, telegramUserId])
   @@index([attendanceSessionId, isPresent])
+}
+
+model GradeSession {
+  id          String        @id @default(cuid())
+  chatId      String
+  sessionDate DateTime
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  chat        Chat          @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  records     GradeRecord[]
+
+  @@unique([chatId, sessionDate])
+  @@index([chatId, sessionDate])
+}
+
+model GradeRecord {
+  id             String       @id @default(cuid())
+  gradeSessionId String
+  telegramUserId BigInt
+  grade          Int?
+  markedAt       DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  gradeSession   GradeSession @relation(fields: [gradeSessionId], references: [id], onDelete: Cascade)
+
+  @@unique([gradeSessionId, telegramUserId])
+  @@index([gradeSessionId, grade])
 }

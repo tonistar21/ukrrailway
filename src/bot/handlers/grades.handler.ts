@@ -1,0 +1,801 @@
+import { InputFile } from 'grammy'
+import { ChatStatus, UserRole, type Chat, type User } from '@prisma/client'
+import { BotContext } from '../context.js'
+import { ensureBotAccess, getMenuByUser } from '../access.js'
+import {
+  gradeChatsKeyboard,
+  gradeDatePromptKeyboard,
+  gradeEmptyKeyboard,
+  gradeMarksKeyboard,
+  gradeValueKeyboard
+} from '../keyboards.js'
+import { getAllActiveChats, getActiveChatsByCreator, getChatById } from '../../services/chat.service.js'
+import { buildGradeJournalWorkbook } from '../../services/grade-export.service.js'
+import { getGradeJournal, setStudentGrade } from '../../services/grade.service.js'
+
+type ManageableChat = Chat & { createdBy: User }
+
+const GRADE_PAGE_SIZE = 8
+
+function canManageAllChats(role: UserRole) {
+  return role === UserRole.ADMIN || role === UserRole.VICE_ADMIN
+}
+
+function resetGradeState(ctx: BotContext) {
+  ctx.session.gradeStep = 'idle'
+  ctx.session.gradeDraft = {}
+}
+
+async function replaceGradeExportFile(
+  ctx: BotContext,
+  params: {
+    chatId: string
+    sessionDate: Date
+    replaceExisting?: boolean
+  }
+) {
+  if (ctx.chat?.type !== 'private') {
+    return null
+  }
+
+  const exportFile = await buildGradeJournalWorkbook(params)
+
+  if (!exportFile) {
+    return null
+  }
+
+  if (params.replaceExisting && ctx.session.gradeDraft.exportMessageId) {
+    try {
+      await ctx.api.deleteMessage(ctx.chat.id, ctx.session.gradeDraft.exportMessageId)
+    } catch {
+      // Ignore stale export message ids.
+    }
+  }
+
+  await ctx.replyWithChatAction('upload_document')
+
+  const message = await ctx.replyWithDocument(new InputFile(exportFile.buffer, exportFile.fileName), {
+    caption: exportFile.caption
+  })
+
+  ctx.session.gradeDraft.exportMessageId = message.message_id
+
+  return message
+}
+
+function formatGradeDate(date: Date) {
+  const day = String(date.getUTCDate()).padStart(2, '0')
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0')
+  const year = date.getUTCFullYear()
+
+  return `${day}.${month}.${year}`
+}
+
+function formatGradeValue(grade: number | null) {
+  return grade === null ? '—' : String(grade)
+}
+
+function buildDateKey(date: Date) {
+  return date.toISOString().slice(0, 10)
+}
+
+function parseDateKey(dateKey: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+    return null
+  }
+
+  const [year, month, day] = dateKey.split('-').map(Number)
+
+  return parseGradeDateParts(day, month, year)
+}
+
+function parseGradeDateParts(day: number, month: number, year: number) {
+  if (!Number.isInteger(day) || !Number.isInteger(month) || !Number.isInteger(year)) {
+    return null
+  }
+
+  if (year < 2020 || year > 2100 || month < 1 || month > 12 || day < 1 || day > 31) {
+    return null
+  }
+
+  const date = new Date(Date.UTC(year, month - 1, day))
+
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return null
+  }
+
+  return date
+}
+
+function parseGradeDate(text: string) {
+  const trimmedText = text.trim()
+
+  const isoMatch = trimmedText.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (isoMatch) {
+    return parseGradeDateParts(Number(isoMatch[3]), Number(isoMatch[2]), Number(isoMatch[1]))
+  }
+
+  const localeMatch = trimmedText.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/)
+  if (!localeMatch) {
+    return null
+  }
+
+  return parseGradeDateParts(Number(localeMatch[1]), Number(localeMatch[2]), Number(localeMatch[3]))
+}
+
+function getTodayGradeDate() {
+  const now = new Date()
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+}
+
+function getYesterdayGradeDate() {
+  const yesterday = getTodayGradeDate()
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1)
+  return yesterday
+}
+
+async function getManageableChats(userId: string, role: UserRole) {
+  if (canManageAllChats(role)) {
+    return getAllActiveChats()
+  }
+
+  return getActiveChatsByCreator(userId)
+}
+
+async function getManageableChatById(params: {
+  chatId: string
+  userId: string
+  role: UserRole
+}) {
+  const chat = await getChatById(params.chatId)
+
+  if (!chat || chat.status !== ChatStatus.ACTIVE || !chat.telegramChatId) {
+    return null
+  }
+
+  if (canManageAllChats(params.role) || chat.createdByUserId === params.userId) {
+    return chat
+  }
+
+  return null
+}
+
+async function buildGradeChatsMessage(user: User) {
+  const chats = await getManageableChats(user.id, user.role)
+
+  if (chats.length === 0) {
+    return null
+  }
+
+  const lines = chats.map((chat, index) => {
+    const ownerLine =
+      canManageAllChats(user.role) && chat.createdBy.fullName
+        ? `\nВідповідальний: ${chat.createdBy.fullName}`
+        : ''
+
+    return `${index + 1}. ${chat.title}${ownerLine}`
+  })
+
+  return {
+    text: ['Оберіть гурток для журналу оцінок:', '', ...lines].join('\n'),
+    reply_markup: gradeChatsKeyboard(chats)
+  }
+}
+
+async function buildGradeJournalMessage(params: {
+  chat: ManageableChat
+  sessionDate: Date
+  page?: number
+}) {
+  const journal = await getGradeJournal({
+    chatId: params.chat.id,
+    sessionDate: params.sessionDate
+  })
+
+  if (!journal) {
+    return null
+  }
+
+  const dateKey = buildDateKey(params.sessionDate)
+  const dateLabel = formatGradeDate(params.sessionDate)
+
+  if (journal.totalStudents === 0) {
+    return {
+      text: [
+        `Журнал оцінок: ${params.chat.title}`,
+        `Гурток: ${params.chat.club}`,
+        `Дата: ${dateLabel}`,
+        '',
+        'У цьому чаті поки немає верифікованих учнів для виставлення оцінок.',
+        'До журналу потрапляють лише підтверджені учні цього гуртка, які є в групі.'
+      ].join('\n'),
+      reply_markup: gradeEmptyKeyboard(params.chat.id, dateKey)
+    }
+  }
+
+  const requestedPage = Math.max(0, params.page ?? 0)
+  const totalPages = Math.ceil(journal.totalStudents / GRADE_PAGE_SIZE)
+  const page = Math.min(requestedPage, Math.max(0, totalPages - 1))
+  const pageStudents = journal.students.slice(
+    page * GRADE_PAGE_SIZE,
+    (page + 1) * GRADE_PAGE_SIZE
+  )
+
+  return {
+    text: [
+      `Журнал оцінок: ${params.chat.title}`,
+      `Гурток: ${params.chat.club}`,
+      `Дата: ${dateLabel}`,
+      '',
+      `Оцінено: ${journal.gradedCount} з ${journal.totalStudents}`,
+      `Середній бал: ${journal.averageGrade ?? '—'}`,
+      `Сторінка: ${page + 1} з ${totalPages}`,
+      '',
+      'Натискайте на учня, щоб виставити, змінити або прибрати оцінку.'
+    ].join('\n'),
+    reply_markup: gradeMarksKeyboard({
+      chatId: params.chat.id,
+      dateKey,
+      page,
+      hasPreviousPage: page > 0,
+      hasNextPage: (page + 1) * GRADE_PAGE_SIZE < journal.totalStudents,
+      students: pageStudents.map((student) => ({
+        telegramUserId: student.telegramUserId,
+        label: student.username ? `${student.fullName} (@${student.username})` : student.fullName,
+        grade: student.grade
+      }))
+    })
+  }
+}
+
+async function buildGradeStudentMessage(params: {
+  chat: ManageableChat
+  sessionDate: Date
+  telegramUserId: bigint
+  page: number
+}) {
+  const journal = await getGradeJournal({
+    chatId: params.chat.id,
+    sessionDate: params.sessionDate
+  })
+
+  if (!journal) {
+    return null
+  }
+
+  const student = journal.students.find(
+    (item) => item.telegramUserId.toString() === params.telegramUserId.toString()
+  )
+
+  if (!student) {
+    return null
+  }
+
+  const dateKey = buildDateKey(params.sessionDate)
+
+  return {
+    text: [
+      `Журнал оцінок: ${params.chat.title}`,
+      `Дата: ${formatGradeDate(params.sessionDate)}`,
+      '',
+      `Учень: ${student.fullName}`,
+      `Username: ${student.username ? `@${student.username}` : 'не вказано'}`,
+      `Поточна оцінка: ${formatGradeValue(student.grade)}`,
+      '',
+      'Оберіть оцінку від 1 до 12 або очистіть поточне значення.'
+    ].join('\n'),
+    reply_markup: gradeValueKeyboard({
+      chatId: params.chat.id,
+      dateKey,
+      telegramUserId: student.telegramUserId,
+      page: params.page,
+      currentGrade: student.grade
+    })
+  }
+}
+
+async function replyGradeDatePrompt(ctx: BotContext, chat: ManageableChat, editCurrentMessage = false) {
+  ctx.session.gradeStep = 'awaitingDate'
+  ctx.session.gradeDraft = {
+    chatId: chat.id,
+    exportMessageId: undefined
+  }
+
+  const todayKey = buildDateKey(getTodayGradeDate())
+  const yesterdayKey = buildDateKey(getYesterdayGradeDate())
+  const text = [
+    `Обрано гурток: ${chat.title}`,
+    '',
+    'Надішліть дату заняття у форматі ДД.ММ.РРРР.',
+    `Наприклад: ${formatGradeDate(getTodayGradeDate())}`,
+    '',
+    'Або скористайтеся швидким вибором нижче.'
+  ].join('\n')
+  const options = {
+    reply_markup: gradeDatePromptKeyboard({
+      chatId: chat.id,
+      todayKey,
+      yesterdayKey
+    })
+  }
+
+  if (editCurrentMessage) {
+    await ctx.editMessageText(text, options)
+    return
+  }
+
+  await ctx.reply(text, options)
+}
+
+export async function handleGrades(ctx: BotContext) {
+  const user = await ensureBotAccess(ctx)
+  if (!user) {
+    if (ctx.callbackQuery) {
+      await ctx.answerCallbackQuery({
+        text: 'Доступ ще не надано.'
+      })
+    }
+    return
+  }
+
+  resetGradeState(ctx)
+
+  const message = await buildGradeChatsMessage(user)
+
+  if (!message) {
+    const text = 'У вас поки немає активних підключених гуртків для журналу оцінок.'
+
+    if (ctx.callbackQuery) {
+      await ctx.answerCallbackQuery()
+      await ctx.editMessageText(text)
+      return
+    }
+
+    await ctx.reply(text, {
+      reply_markup: getMenuByUser(user)
+    })
+    return
+  }
+
+  if (ctx.callbackQuery) {
+    await ctx.answerCallbackQuery()
+    await ctx.editMessageText(message.text, {
+      reply_markup: message.reply_markup
+    })
+    return
+  }
+
+  await ctx.reply(message.text, {
+    reply_markup: message.reply_markup
+  })
+}
+
+export async function handleGradesChatSelection(ctx: BotContext) {
+  const user = await ensureBotAccess(ctx)
+  if (!user) {
+    await ctx.answerCallbackQuery({
+      text: 'Доступ ще не надано.'
+    })
+    return
+  }
+
+  const data = ctx.callbackQuery?.data
+
+  if (!data) {
+    return
+  }
+
+  const chatId = data.startsWith('grd:') ? data.replace('grd:', '') : data.replace('grc:', '')
+  const chat = await getManageableChatById({
+    chatId,
+    userId: user.id,
+    role: user.role
+  })
+
+  await ctx.answerCallbackQuery()
+
+  if (!chat) {
+    resetGradeState(ctx)
+    await ctx.reply('Не вдалося відкрити цей гурток для журналу оцінок.', {
+      reply_markup: getMenuByUser(user)
+    })
+    return
+  }
+
+  await replyGradeDatePrompt(ctx, chat, true)
+}
+
+export async function handleGradesDateSelection(ctx: BotContext) {
+  const user = await ensureBotAccess(ctx)
+  if (!user) {
+    await ctx.answerCallbackQuery({
+      text: 'Доступ ще не надано.'
+    })
+    return
+  }
+
+  const data = ctx.callbackQuery?.data
+  if (!data?.startsWith('grq:')) {
+    return
+  }
+
+  const [, chatId, dateKey] = data.split(':')
+
+  if (!chatId || !dateKey) {
+    await ctx.answerCallbackQuery()
+    return
+  }
+
+  const [chat, sessionDate] = await Promise.all([
+    getManageableChatById({
+      chatId,
+      userId: user.id,
+      role: user.role
+    }),
+    Promise.resolve(parseDateKey(dateKey))
+  ])
+
+  await ctx.answerCallbackQuery()
+
+  if (!chat || !sessionDate) {
+    resetGradeState(ctx)
+    await ctx.reply('Не вдалося відкрити журнал оцінок на цю дату.', {
+      reply_markup: getMenuByUser(user)
+    })
+    return
+  }
+
+  ctx.session.gradeStep = 'idle'
+  ctx.session.gradeDraft = {
+    chatId: chat.id,
+    date: dateKey,
+    exportMessageId: undefined
+  }
+
+  const message = await buildGradeJournalMessage({
+    chat,
+    sessionDate
+  })
+
+  if (!message) {
+    await ctx.reply('Не вдалося побудувати журнал оцінок.', {
+      reply_markup: getMenuByUser(user)
+    })
+    return
+  }
+
+  await ctx.editMessageText(message.text, {
+    reply_markup: message.reply_markup
+  })
+}
+
+export async function handleGradesPageSelection(ctx: BotContext) {
+  const user = await ensureBotAccess(ctx)
+  if (!user) {
+    await ctx.answerCallbackQuery({
+      text: 'Доступ ще не надано.'
+    })
+    return
+  }
+
+  const data = ctx.callbackQuery?.data
+  if (!data?.startsWith('grp:')) {
+    return
+  }
+
+  const [, chatId, dateKey, pageString] = data.split(':')
+  const sessionDate = dateKey ? parseDateKey(dateKey) : null
+  const page = Number(pageString)
+
+  await ctx.answerCallbackQuery()
+
+  if (!chatId || !sessionDate || !Number.isInteger(page) || page < 0) {
+    return
+  }
+
+  const chat = await getManageableChatById({
+    chatId,
+    userId: user.id,
+    role: user.role
+  })
+
+  if (!chat) {
+    resetGradeState(ctx)
+    await ctx.reply('Цей гурток більше недоступний для журналу оцінок.', {
+      reply_markup: getMenuByUser(user)
+    })
+    return
+  }
+
+  const message = await buildGradeJournalMessage({
+    chat,
+    sessionDate,
+    page
+  })
+
+  if (!message) {
+    return
+  }
+
+  await ctx.editMessageText(message.text, {
+    reply_markup: message.reply_markup
+  })
+}
+
+export async function handleGradesStudentSelection(ctx: BotContext) {
+  const user = await ensureBotAccess(ctx)
+  if (!user) {
+    await ctx.answerCallbackQuery({
+      text: 'Доступ ще не надано.'
+    })
+    return
+  }
+
+  const data = ctx.callbackQuery?.data
+  if (!data?.startsWith('grs:')) {
+    return
+  }
+
+  const [, chatId, dateKey, telegramUserId, pageString] = data.split(':')
+  const sessionDate = dateKey ? parseDateKey(dateKey) : null
+  const page = Number(pageString)
+
+  await ctx.answerCallbackQuery()
+
+  if (!chatId || !sessionDate || !telegramUserId || !Number.isInteger(page) || page < 0) {
+    return
+  }
+
+  const chat = await getManageableChatById({
+    chatId,
+    userId: user.id,
+    role: user.role
+  })
+
+  if (!chat) {
+    resetGradeState(ctx)
+    await ctx.reply('Гурток недоступний.', {
+      reply_markup: getMenuByUser(user)
+    })
+    return
+  }
+
+  const message = await buildGradeStudentMessage({
+    chat,
+    sessionDate,
+    telegramUserId: BigInt(telegramUserId),
+    page
+  })
+
+  if (!message) {
+    await ctx.reply('Не вдалося відкрити картку учня для оцінювання.', {
+      reply_markup: getMenuByUser(user)
+    })
+    return
+  }
+
+  await ctx.editMessageText(message.text, {
+    reply_markup: message.reply_markup
+  })
+}
+
+export async function handleGradesValueSelection(ctx: BotContext) {
+  const user = await ensureBotAccess(ctx)
+  if (!user) {
+    await ctx.answerCallbackQuery({
+      text: 'Доступ ще не надано.'
+    })
+    return
+  }
+
+  const data = ctx.callbackQuery?.data
+  const isClearAction = data?.startsWith('grx:')
+  const isMarkAction = data?.startsWith('grm:')
+
+  if (!data || (!isClearAction && !isMarkAction)) {
+    return
+  }
+
+  const parts = data.split(':')
+  const chatId = parts[1]
+  const dateKey = parts[2]
+  const telegramUserId = parts[3]
+  const page = Number(parts[isClearAction ? 4 : 5])
+  const grade = isClearAction ? null : Number(parts[4])
+  const sessionDate = dateKey ? parseDateKey(dateKey) : null
+
+  if (
+    !chatId ||
+    !sessionDate ||
+    !telegramUserId ||
+    !Number.isInteger(page) ||
+    page < 0 ||
+    (grade !== null && (!Number.isInteger(grade) || grade < 1 || grade > 12))
+  ) {
+    await ctx.answerCallbackQuery()
+    return
+  }
+
+  const chat = await getManageableChatById({
+    chatId,
+    userId: user.id,
+    role: user.role
+  })
+
+  if (!chat) {
+    resetGradeState(ctx)
+    await ctx.answerCallbackQuery({
+      text: 'Гурток недоступний.'
+    })
+    return
+  }
+
+  const result = await setStudentGrade({
+    chatId,
+    sessionDate,
+    telegramUserId: BigInt(telegramUserId),
+    grade
+  })
+
+  if (!result) {
+    await ctx.answerCallbackQuery({
+      text: 'Не вдалося зберегти оцінку.'
+    })
+    return
+  }
+
+  await ctx.answerCallbackQuery({
+    text: grade === null ? 'Оцінку прибрано.' : `Оцінку ${grade} збережено.`
+  })
+
+  const message = await buildGradeJournalMessage({
+    chat,
+    sessionDate,
+    page
+  })
+
+  if (!message) {
+    return
+  }
+
+  await ctx.editMessageText(message.text, {
+    reply_markup: message.reply_markup
+  })
+
+  if (
+    ctx.session.gradeDraft.chatId === chat.id &&
+    ctx.session.gradeDraft.date === dateKey &&
+    ctx.session.gradeDraft.exportMessageId
+  ) {
+    await replaceGradeExportFile(ctx, {
+      chatId,
+      sessionDate,
+      replaceExisting: true
+    })
+  }
+}
+
+export async function handleGradesExport(ctx: BotContext) {
+  const user = await ensureBotAccess(ctx)
+  if (!user) {
+    await ctx.answerCallbackQuery({
+      text: 'Доступ ще не надано.'
+    })
+    return
+  }
+
+  const data = ctx.callbackQuery?.data
+  if (!data?.startsWith('grf:')) {
+    return
+  }
+
+  const [, chatId, dateKey] = data.split(':')
+  const sessionDate = dateKey ? parseDateKey(dateKey) : null
+
+  if (!chatId || !sessionDate) {
+    await ctx.answerCallbackQuery()
+    return
+  }
+
+  const chat = await getManageableChatById({
+    chatId,
+    userId: user.id,
+    role: user.role
+  })
+
+  if (!chat) {
+    resetGradeState(ctx)
+    await ctx.answerCallbackQuery({
+      text: 'Гурток недоступний.'
+    })
+    return
+  }
+
+  ctx.session.gradeDraft = {
+    chatId: chat.id,
+    date: dateKey,
+    exportMessageId: ctx.session.gradeDraft.exportMessageId
+  }
+
+  const exportMessage = await replaceGradeExportFile(ctx, {
+    chatId,
+    sessionDate,
+    replaceExisting: true
+  })
+
+  await ctx.answerCallbackQuery({
+    text: exportMessage ? 'Файл журналу оцінок надіслано.' : 'Не вдалося сформувати файл.'
+  })
+}
+
+export async function handleGradesTextInput(ctx: BotContext) {
+  if (!ctx.from || !ctx.message || typeof ctx.message.text !== 'string') {
+    return false
+  }
+
+  if (ctx.chat?.type !== 'private' || ctx.session.gradeStep !== 'awaitingDate') {
+    return false
+  }
+
+  const user = await ensureBotAccess(ctx)
+  if (!user) {
+    return true
+  }
+
+  const chatId = ctx.session.gradeDraft.chatId
+  if (!chatId) {
+    resetGradeState(ctx)
+    await ctx.reply('Спочатку оберіть гурток для журналу оцінок.', {
+      reply_markup: getMenuByUser(user)
+    })
+    return true
+  }
+
+  const sessionDate = parseGradeDate(ctx.message.text)
+  if (!sessionDate) {
+    await ctx.reply('Введіть дату у форматі ДД.ММ.РРРР або YYYY-MM-DD.')
+    return true
+  }
+
+  const chat = await getManageableChatById({
+    chatId,
+    userId: user.id,
+    role: user.role
+  })
+
+  if (!chat) {
+    resetGradeState(ctx)
+    await ctx.reply('Не вдалося знайти цей гурток для журналу оцінок.', {
+      reply_markup: getMenuByUser(user)
+    })
+    return true
+  }
+
+  ctx.session.gradeStep = 'idle'
+  ctx.session.gradeDraft = {
+    chatId: chat.id,
+    date: buildDateKey(sessionDate),
+    exportMessageId: undefined
+  }
+
+  const message = await buildGradeJournalMessage({
+    chat,
+    sessionDate
+  })
+
+  if (!message) {
+    await ctx.reply('Не вдалося побудувати журнал оцінок.', {
+      reply_markup: getMenuByUser(user)
+    })
+    return true
+  }
+
+  await ctx.reply(message.text, {
+    reply_markup: message.reply_markup
+  })
+  return true
+}
