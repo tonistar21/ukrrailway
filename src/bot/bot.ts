@@ -80,6 +80,10 @@ import {
   startMailCompose
 } from './handlers/mail.handler.js'
 import {
+  handleTeacherShowcase,
+  handleTeacherShowcaseAction
+} from './handlers/teacher-showcase.handler.js'
+import {
   handleGroupInterestingEvents,
   handleGroupInterestingEventsAction,
   handleInterestingEvents,
@@ -168,6 +172,7 @@ bot.callbackQuery(/^event_create$/, handleEventCreateCallback)
 bot.callbackQuery(/^event_list$/, handleEventListCallback)
 bot.callbackQuery(/^mail(_target:(TEACHER|ADMIN|VICE_ADMIN)|_cancel)$/, handleMailTargetSelection)
 bot.callbackQuery(/^mail(box_home|box_tab:(unread|read)|_open:[^:]+:(unread|read))$/, handleMailboxNavigation)
+bot.callbackQuery(/^(tss|tsp|tsn|tsr|tsc):(ALL|KYIV|LVIV|DNIPRO|RIVNE|ZAPORIZHZHIA|KHARKIV)(:\d+)?$/, handleTeacherShowcaseAction)
 bot.callbackQuery(/^giev_(open|show:\d+|prev:\d+|next:\d+|refresh:\d+|close)$/, handleGroupInterestingEventsAction)
 bot.callbackQuery(/^iev_(show:\d+|prev|next|refresh|close)$/, handleInterestingEventsAction)
 
@@ -187,6 +192,8 @@ bot.hears('Написати листа', startMailCompose)
 bot.hears('✉️ Написати листа', startMailCompose)
 bot.hears('Пошта', handleMailbox)
 bot.hears('📬 Пошта', handleMailbox)
+bot.hears('Викладачі', handleTeacherShowcase)
+bot.hears('👩‍🏫 Викладачі', handleTeacherShowcase)
 bot.hears('Цікаві події', handleInterestingEvents)
 bot.hears('📰 Цікаві події', handleInterestingEvents)
 bot.hears('Створити подію', startEventCreation)

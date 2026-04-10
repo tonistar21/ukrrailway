@@ -298,6 +298,52 @@ export async function getApprovedTeachersByCityAndClub(params: {
   })
 }
 
+export async function getApprovedTeachersByCity(city: StudentCity) {
+  return prisma.user.findMany({
+    where: {
+      role: UserRole.TEACHER,
+      verificationStatus: VerificationStatus.APPROVED,
+      teacherCity: city,
+      status: UserStatus.ACTIVE
+    },
+    orderBy: [
+      {
+        teacherClub: 'asc'
+      },
+      {
+        profileName: 'asc'
+      },
+      {
+        createdAt: 'asc'
+      }
+    ]
+  })
+}
+
+export async function getAllApprovedTeachers() {
+  return prisma.user.findMany({
+    where: {
+      role: UserRole.TEACHER,
+      verificationStatus: VerificationStatus.APPROVED,
+      status: UserStatus.ACTIVE
+    },
+    orderBy: [
+      {
+        teacherCity: 'asc'
+      },
+      {
+        teacherClub: 'asc'
+      },
+      {
+        profileName: 'asc'
+      },
+      {
+        createdAt: 'asc'
+      }
+    ]
+  })
+}
+
 export async function getUserById(userId: string) {
   return prisma.user.findUnique({
     where: {

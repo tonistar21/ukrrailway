@@ -18,6 +18,8 @@ export function managerMenuKeyboard() {
     .text('📬 Пошта')
     .text('📰 Цікаві події')
     .row()
+    .text('👩‍🏫 Викладачі')
+    .row()
     .text('👤 Профіль')
     .persistent()
     .resized()
@@ -78,6 +80,8 @@ export function userMenuKeyboard() {
     .text('✉️ Написати листа')
     .row()
     .text('📰 Цікаві події')
+    .row()
+    .text('👩‍🏫 Викладачі')
     .row()
     .text('👤 Профіль')
     .persistent()
@@ -519,6 +523,36 @@ export function groupInterestingEventsKeyboard(params: {
   return keyboard
     .text('🔄 Оновити', `giev_refresh:${params.currentIndex}`)
     .text('✖️ Закрити', 'giev_close')
+}
+
+export function teacherShowcaseKeyboard(params: {
+  scope: string
+  currentIndex: number
+  totalItems: number
+}) {
+  const keyboard = new InlineKeyboard()
+
+  for (let index = 0; index < params.totalItems; index += 1) {
+    const label = index === params.currentIndex ? `•${index + 1}` : String(index + 1)
+    keyboard.text(label, `tss:${params.scope}:${index}`)
+
+    if ((index + 1) % 6 === 0 && index < params.totalItems - 1) {
+      keyboard.row()
+    }
+  }
+
+  if (params.totalItems > 0) {
+    keyboard.row()
+  }
+
+  if (params.totalItems > 1) {
+    keyboard.text('⬅️ Попередній', `tsp:${params.scope}:${params.currentIndex}`)
+    keyboard.text('➡️ Наступний', `tsn:${params.scope}:${params.currentIndex}`).row()
+  }
+
+  return keyboard
+    .text('🔄 Оновити', `tsr:${params.scope}:${params.currentIndex}`)
+    .text('✖️ Закрити', `tsc:${params.scope}`)
 }
 
 export function attendanceChatsKeyboard(
