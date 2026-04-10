@@ -126,10 +126,12 @@ export async function getAttendanceJournal(params: {
   const recordsMap = new Map(records.map((record) => [record.telegramUserId.toString(), record]))
   const studentsWithAttendance = roster.map((student) => ({
     ...student,
-    isPresent: recordsMap.get(student.telegramUserId.toString())?.isPresent ?? false
+    isPresent: recordsMap.get(student.telegramUserId.toString())?.isPresent ?? false,
+    markedAt: recordsMap.get(student.telegramUserId.toString())?.markedAt ?? null
   }))
 
   return {
+    chat: rosterData.chat,
     session,
     students: studentsWithAttendance,
     totalStudents: studentsWithAttendance.length,

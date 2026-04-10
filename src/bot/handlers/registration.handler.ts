@@ -421,8 +421,8 @@ async function finalizeStudentRegistration(
         reply_markup: {
           inline_keyboard: [
             [
-              { text: 'Верифікувати', callback_data: `application_approve:${application.id}` },
-              { text: 'Відхилити', callback_data: `application_reject:${application.id}` }
+              { text: '✅ Верифікувати', callback_data: `application_approve:${application.id}` },
+              { text: '✖️ Відхилити', callback_data: `application_reject:${application.id}` }
             ]
           ]
         }

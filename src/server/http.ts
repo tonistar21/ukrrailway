@@ -211,11 +211,11 @@ function renderLayout(params: {
         </div>
         <div class="app-actions">
           <nav class="nav-tabs">
-            <a href="/admin" class="nav-tab${params.activeTab === 'users' ? ' active' : ''}">Користувачі</a>
-            <a href="/admin/attendance" class="nav-tab${params.activeTab === 'attendance' ? ' active' : ''}">Відвідуваність</a>
+            <a href="/admin" class="nav-tab${params.activeTab === 'users' ? ' active' : ''}">👥 Користувачі</a>
+            <a href="/admin/attendance" class="nav-tab${params.activeTab === 'attendance' ? ' active' : ''}">📘 Відвідуваність</a>
           </nav>
           <form method="post" action="/logout">
-            <button type="submit" class="secondary">Вийти</button>
+            <button type="submit" class="secondary">🔓 Вийти</button>
           </form>
         </div>
       </header>`
@@ -229,36 +229,40 @@ function renderLayout(params: {
     <style>
       :root {
         color-scheme: light;
-        --bg: #f4efe4;
-        --bg-strong: #efe6d5;
-        --panel: rgba(255, 250, 241, 0.94);
-        --panel-strong: #fffaf0;
-        --line: #d9ccb0;
-        --line-strong: #cbb998;
-        --text: #2f2417;
-        --muted: #76624b;
-        --accent: #0f7c6b;
-        --accent-strong: #0b6658;
-        --accent-soft: #d9f1eb;
-        --blue-soft: #dfeaf9;
-        --blue-text: #255381;
-        --amber-soft: #f6ebc8;
-        --amber-text: #7f6212;
+        --bg: #f3efe7;
+        --bg-strong: #ece5d8;
+        --panel: rgba(255, 255, 255, 0.95);
+        --panel-strong: #ffffff;
+        --line: #d8dce8;
+        --line-strong: #b5bdd0;
+        --text: #1a1a1a;
+        --muted: #5f6471;
+        --accent: #151f6d;
+        --accent-strong: #0f1758;
+        --accent-soft: #e7ebfb;
+        --blue-soft: #e7ebfb;
+        --blue-text: #151f6d;
+        --amber-soft: #fff0d8;
+        --amber-text: #b86500;
         --rose-soft: #f7dde0;
         --rose-text: #8e3745;
-        --slate-soft: #ece8df;
-        --slate-text: #5e5448;
+        --slate-soft: #eef1f5;
+        --slate-text: #616775;
         --danger: #a33a3a;
-        --shadow: 0 24px 60px rgba(62, 47, 28, 0.08);
+        --shadow: 0 24px 60px rgba(21, 31, 109, 0.08);
+        --orange: #ff9e1b;
+        --orange-strong: #ea8c0f;
+        --orange-soft: #fff2de;
+        --oyster: #f3efe7;
       }
       * { box-sizing: border-box; }
       body {
         margin: 0;
-        font-family: "Segoe UI", "Trebuchet MS", sans-serif;
+        font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
         background:
-          radial-gradient(circle at top left, rgba(15,124,107,0.15), transparent 28%),
-          radial-gradient(circle at top right, rgba(196, 168, 108, 0.18), transparent 24%),
-          linear-gradient(180deg, #faf6ed 0%, var(--bg) 100%);
+          radial-gradient(circle at top left, rgba(21,31,109,0.14), transparent 28%),
+          radial-gradient(circle at top right, rgba(255,158,27,0.18), transparent 24%),
+          linear-gradient(180deg, #faf8f3 0%, var(--bg) 100%);
         color: var(--text);
       }
       .wrap {
@@ -275,6 +279,9 @@ function renderLayout(params: {
       .hero {
         padding: 22px 24px;
         margin-bottom: 18px;
+        background:
+          linear-gradient(135deg, rgba(255,255,255,0.98), rgba(243,239,231,0.96)),
+          var(--panel);
       }
       .panel {
         padding: 24px;
@@ -283,6 +290,7 @@ function renderLayout(params: {
       h1 { font-size: 34px; margin-bottom: 10px; }
       h2 { font-size: 26px; margin-bottom: 12px; }
       h3 { font-size: 18px; margin-bottom: 8px; }
+      h1, h2, h3, .app-title { color: var(--accent); }
       p { color: var(--muted); line-height: 1.5; }
       a { color: inherit; text-decoration: none; }
       input, select, button {
@@ -296,8 +304,8 @@ function renderLayout(params: {
       }
       input:focus, select:focus {
         outline: none;
-        border-color: rgba(15, 124, 107, 0.7);
-        box-shadow: 0 0 0 4px rgba(15, 124, 107, 0.12);
+        border-color: rgba(21, 31, 109, 0.55);
+        box-shadow: 0 0 0 4px rgba(21, 31, 109, 0.12);
       }
       button {
         background: var(--accent);
@@ -305,16 +313,18 @@ function renderLayout(params: {
         color: white;
         cursor: pointer;
         font-weight: 700;
+        box-shadow: 0 10px 22px rgba(21, 31, 109, 0.15);
       }
       button:hover { transform: translateY(-1px); background: var(--accent-strong); border-color: var(--accent-strong); }
       button.secondary {
         background: white;
-        border-color: var(--line);
-        color: var(--text);
+        border-color: rgba(21, 31, 109, 0.18);
+        color: var(--accent);
+        box-shadow: none;
       }
       button.secondary:hover {
-        background: var(--panel-strong);
-        border-color: var(--line-strong);
+        background: var(--accent-soft);
+        border-color: rgba(21, 31, 109, 0.26);
       }
       .error {
         color: var(--danger);
@@ -353,8 +363,8 @@ function renderLayout(params: {
         font-weight: 700;
       }
       .nav-tab.active {
-        background: var(--accent-soft);
-        color: var(--accent-strong);
+        background: var(--orange-soft);
+        color: var(--accent);
       }
       .eyebrow {
         text-transform: uppercase;
@@ -397,10 +407,20 @@ function renderLayout(params: {
         margin: 18px 0 22px;
       }
       .stat-card {
-        background: linear-gradient(180deg, rgba(255,255,255,0.7), rgba(255,250,241,0.95));
+        background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(247,248,252,0.98));
         border: 1px solid var(--line);
         border-radius: 18px;
         padding: 16px 18px;
+        position: relative;
+        overflow: hidden;
+      }
+      .stat-card::before {
+        content: "";
+        position: absolute;
+        inset: 0 auto auto 0;
+        width: 100%;
+        height: 4px;
+        background: linear-gradient(90deg, var(--accent) 0%, var(--orange) 100%);
       }
       .stat-label {
         color: var(--muted);
@@ -436,7 +456,7 @@ function renderLayout(params: {
         padding: 18px;
         border-radius: 18px;
         border: 1px solid var(--line);
-        background: linear-gradient(180deg, rgba(255,255,255,0.55), rgba(255,250,241,0.9));
+        background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(245,247,252,0.98));
       }
       .teacher-card-header {
         display: flex;
@@ -468,7 +488,7 @@ function renderLayout(params: {
         overflow: auto;
         border: 1px solid var(--line);
         border-radius: 18px;
-        background: rgba(255,255,255,0.45);
+        background: rgba(255,255,255,0.62);
       }
       table {
         width: 100%;
@@ -478,17 +498,17 @@ function renderLayout(params: {
       }
       th, td {
         padding: 15px 14px;
-        border-top: 1px solid rgba(217, 204, 176, 0.8);
+        border-top: 1px solid rgba(216, 220, 232, 0.9);
         text-align: left;
         vertical-align: top;
-        background: rgba(255, 250, 241, 0.65);
+        background: rgba(255, 255, 255, 0.78);
       }
       th {
         position: sticky;
         top: 0;
         z-index: 2;
-        background: rgba(247, 240, 225, 0.98);
-        color: var(--slate-text);
+        background: rgba(239, 242, 250, 0.98);
+        color: var(--accent);
         font-size: 12px;
         font-weight: 600;
         text-transform: uppercase;
@@ -501,7 +521,7 @@ function renderLayout(params: {
         z-index: 3;
       }
       tbody .sticky-col {
-        background: rgba(255, 250, 241, 0.98);
+        background: rgba(255, 255, 255, 0.98);
       }
       tr:first-child td { border-top: none; }
       .users-table td { min-width: 132px; }
@@ -590,9 +610,9 @@ function renderLayout(params: {
         background: white;
       }
       .mark-present {
-        background: var(--accent-soft);
-        color: var(--accent-strong);
-        border-color: rgba(15,124,107,0.2);
+        background: var(--orange-soft);
+        color: var(--orange-strong);
+        border-color: rgba(255, 158, 27, 0.24);
       }
       .mark-absent {
         color: var(--muted);
@@ -800,8 +820,8 @@ function renderPendingTeacherCard(user: Awaited<ReturnType<typeof getAllUsers>>[
       <div><strong>Подано:</strong> ${escapeHtml(requestedAt)}</div>
     </div>
     <form method="post" action="/admin/users/${escapeHtml(user.id)}/verification" class="actions">
-      <button type="submit" name="action" value="approve">Схвалити</button>
-      <button type="submit" name="action" value="reject" class="secondary">Відхилити</button>
+            <button type="submit" name="action" value="approve">✅ Схвалити</button>
+            <button type="submit" name="action" value="reject" class="secondary">✖️ Відхилити</button>
     </form>
   </article>`
 }
@@ -856,7 +876,7 @@ async function renderUsersPage() {
         <td data-label="Керування">
           <form method="post" action="/admin/users/${escapeHtml(user.id)}/role" class="role-form">
             <select name="role">${selectedOptions}</select>
-            <button type="submit">Зберегти</button>
+            <button type="submit">💾 Зберегти</button>
           </form>
         </td>
       </tr>`
@@ -945,7 +965,7 @@ async function renderAttendancePage(params: {
       <input type="month" name="month" value="${escapeHtml(formatMonthValue(monthStart))}" />
     </label>
     <div class="toolbar-actions">
-      <button type="submit">Показати журнал</button>
+      <button type="submit">📅 Показати журнал</button>
     </div>
   </form>`
 

@@ -1,3 +1,4 @@
+import { InputFile } from 'grammy'
 import { ChatStatus, UserRole, type Chat, type User } from '@prisma/client'
 import { BotContext } from '../context.js'
 import { ensureBotAccess, getMenuByUser } from '../access.js'
@@ -8,6 +9,7 @@ import {
   attendanceMarksKeyboard
 } from '../keyboards.js'
 import { getAllActiveChats, getActiveChatsByCreator, getChatById } from '../../services/chat.service.js'
+import { buildAttendanceJournalWorkbook } from '../../services/attendance-export.service.js'
 import { getAttendanceJournal, toggleAttendanceMark } from '../../services/attendance.service.js'
 
 type ManageableChat = Chat & { createdBy: User }
@@ -21,6 +23,43 @@ function canManageAllChats(role: UserRole) {
 function resetAttendanceState(ctx: BotContext) {
   ctx.session.attendanceStep = 'idle'
   ctx.session.attendanceDraft = {}
+}
+
+async function replaceAttendanceExportFile(
+  ctx: BotContext,
+  params: {
+    chatId: string
+    sessionDate: Date
+    replaceExisting?: boolean
+  }
+) {
+  if (ctx.chat?.type !== 'private') {
+    return null
+  }
+
+  const exportFile = await buildAttendanceJournalWorkbook(params)
+
+  if (!exportFile) {
+    return null
+  }
+
+  if (params.replaceExisting && ctx.session.attendanceDraft.exportMessageId) {
+    try {
+      await ctx.api.deleteMessage(ctx.chat.id, ctx.session.attendanceDraft.exportMessageId)
+    } catch {
+      // Ignore stale export message ids.
+    }
+  }
+
+  await ctx.replyWithChatAction('upload_document')
+
+  const message = await ctx.replyWithDocument(new InputFile(exportFile.buffer, exportFile.fileName), {
+    caption: exportFile.caption
+  })
+
+  ctx.session.attendanceDraft.exportMessageId = message.message_id
+
+  return message
 }
 
 function formatAttendanceDate(date: Date) {
@@ -169,7 +208,7 @@ async function buildAttendanceJournalMessage(params: {
         'У цьому чаті поки немає верифікованих учнів для відмітки.',
         'До журналу потрапляють лише підтверджені учні цього гуртка, які є в групі.'
       ].join('\n'),
-      reply_markup: attendanceEmptyKeyboard(params.chat.id)
+      reply_markup: attendanceEmptyKeyboard(params.chat.id, dateKey)
     }
   }
 
@@ -210,7 +249,8 @@ async function buildAttendanceJournalMessage(params: {
 async function replyAttendanceDatePrompt(ctx: BotContext, chat: ManageableChat, editCurrentMessage = false) {
   ctx.session.attendanceStep = 'awaitingDate'
   ctx.session.attendanceDraft = {
-    chatId: chat.id
+    chatId: chat.id,
+    exportMessageId: undefined
   }
 
   const todayKey = buildDateKey(getTodayAttendanceDate())
@@ -360,7 +400,8 @@ export async function handleAttendanceDateSelection(ctx: BotContext) {
   ctx.session.attendanceStep = 'idle'
   ctx.session.attendanceDraft = {
     chatId: chat.id,
-    date: dateKey
+    date: dateKey,
+    exportMessageId: undefined
   }
 
   const message = await buildAttendanceJournalMessage({
@@ -500,6 +541,71 @@ export async function handleAttendanceToggle(ctx: BotContext) {
   await ctx.editMessageText(message.text, {
     reply_markup: message.reply_markup
   })
+
+  if (
+    ctx.session.attendanceDraft.chatId === chat.id &&
+    ctx.session.attendanceDraft.date === dateKey &&
+    ctx.session.attendanceDraft.exportMessageId
+  ) {
+    await replaceAttendanceExportFile(ctx, {
+      chatId,
+      sessionDate,
+      replaceExisting: true
+    })
+  }
+}
+
+export async function handleAttendanceExport(ctx: BotContext) {
+  const user = await ensureBotAccess(ctx)
+  if (!user) {
+    await ctx.answerCallbackQuery({
+      text: 'Доступ ще не надано.'
+    })
+    return
+  }
+
+  const data = ctx.callbackQuery?.data
+  if (!data?.startsWith('attf:')) {
+    return
+  }
+
+  const [, chatId, dateKey] = data.split(':')
+  const sessionDate = dateKey ? parseDateKey(dateKey) : null
+
+  if (!chatId || !sessionDate) {
+    await ctx.answerCallbackQuery()
+    return
+  }
+
+  const chat = await getManageableChatById({
+    chatId,
+    userId: user.id,
+    role: user.role
+  })
+
+  if (!chat) {
+    resetAttendanceState(ctx)
+    await ctx.answerCallbackQuery({
+      text: 'Гурток недоступний.'
+    })
+    return
+  }
+
+  ctx.session.attendanceDraft = {
+    chatId: chat.id,
+    date: dateKey,
+    exportMessageId: ctx.session.attendanceDraft.exportMessageId
+  }
+
+  const exportMessage = await replaceAttendanceExportFile(ctx, {
+    chatId,
+    sessionDate,
+    replaceExisting: true
+  })
+
+  await ctx.answerCallbackQuery({
+    text: exportMessage ? 'Файл журналу за місяць надіслано.' : 'Не вдалося сформувати файл.'
+  })
 }
 
 export async function handleAttendanceTextInput(ctx: BotContext) {
@@ -548,7 +654,8 @@ export async function handleAttendanceTextInput(ctx: BotContext) {
   ctx.session.attendanceStep = 'idle'
   ctx.session.attendanceDraft = {
     chatId: chat.id,
-    date: buildDateKey(sessionDate)
+    date: buildDateKey(sessionDate),
+    exportMessageId: undefined
   }
 
   const message = await buildAttendanceJournalMessage({

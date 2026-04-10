@@ -4,34 +4,34 @@ import { fullGroupAdministratorRights } from './utils/chat-admin-rights.js'
 
 export function managerMenuKeyboard() {
   return new Keyboard()
-    .text('Створити чат')
-    .text('Мої чати')
+    .text('🚆 Створити чат')
+    .text('🗂️ Мої чати')
     .row()
-    .text('Журнал відвідуваності')
-    .text('Керування чатами')
+    .text('📘 Журнал відвідуваності')
+    .text('🛠️ Керування чатами')
     .row()
-    .text('Верифікація викладачів')
-    .text('Усі чати')
+    .text('🛡️ Верифікація викладачів')
+    .text('🌐 Усі чати')
     .row()
-    .text('Профіль')
+    .text('👤 Профіль')
     .persistent()
     .resized()
 }
 
 export function teacherMenuKeyboard(canVerifyStudents = false) {
   const keyboard = new Keyboard()
-    .text('Створити чат')
-    .text('Мої чати')
+    .text('🚆 Створити чат')
+    .text('🗂️ Мої чати')
     .row()
-    .text('Керування чатами')
-    .text('Заявки в гуртки')
+    .text('🛠️ Керування чатами')
+    .text('📝 Заявки в гуртки')
     .row()
-    .text('Події')
-    .text('Журнал відвідуваності')
+    .text('📅 Події')
+    .text('📘 Журнал відвідуваності')
     .row()
 
   return keyboard
-    .text('Профіль')
+    .text('👤 Профіль')
     .persistent()
     .resized()
 }
@@ -50,23 +50,23 @@ export function mainMenuKeyboard(role: UserRole, canVerifyStudents = false) {
 
 export function incompleteRegistrationKeyboard() {
   return new Keyboard()
-    .text('Почати реєстрацію')
+    .text('🧭 Почати реєстрацію')
     .persistent()
     .resized()
 }
 
 export function pendingVerificationKeyboard() {
   return new Keyboard()
-    .text('Перевірити статус')
+    .text('🧾 Перевірити статус')
     .row()
-    .text('Профіль')
+    .text('👤 Профіль')
     .persistent()
     .resized()
 }
 
 export function userMenuKeyboard() {
   return new Keyboard()
-    .text('Профіль')
+    .text('👤 Профіль')
     .persistent()
     .resized()
 }
@@ -106,18 +106,18 @@ export function ageGroupKeyboard() {
 
 export function contactChoiceKeyboard() {
   return new Keyboard()
-    .text('Використати мій профіль')
+    .text('📇 Використати мій профіль')
     .row()
-    .text('Ввести вручну')
+    .text('✍️ Ввести вручну')
     .row()
-    .text('Скасувати')
+    .text('❌ Скасувати')
     .resized()
     .oneTime()
 }
 
 export function connectChatKeyboard(requestId: number) {
   return new Keyboard()
-    .requestChat('Обрати чат для підключення', requestId, {
+    .requestChat('➕ Обрати чат для підключення', requestId, {
       chat_is_channel: false,
       chat_is_created: true,
       request_title: true,
@@ -125,16 +125,16 @@ export function connectChatKeyboard(requestId: number) {
       user_administrator_rights: fullGroupAdministratorRights
     })
     .row()
-    .text('Скасувати')
+    .text('❌ Скасувати')
     .resized()
     .oneTime()
 }
 
-export function profileKeyboard(updateButtonText = 'Оновити профіль') {
+export function profileKeyboard(updateButtonText = '✏️ Оновити профіль') {
   return new Keyboard()
     .text(updateButtonText)
     .row()
-    .text('Назад у меню')
+    .text('↩️ Назад у меню')
     .resized()
 }
 
@@ -178,41 +178,41 @@ export function teacherClubKeyboard() {
 
 export function registrationTypeKeyboard() {
   return new InlineKeyboard()
-    .text('Учня', 'registration_type:STUDENT')
+    .text('🎓 Учня', 'registration_type:STUDENT')
     .row()
-    .text('Викладача', 'registration_type:TEACHER')
+    .text('👩‍🏫 Викладача', 'registration_type:TEACHER')
 }
 
 export function applicationDecisionKeyboard(applicationId: string) {
   return new InlineKeyboard()
-    .text('Схвалити', `application_approve:${applicationId}`)
-    .text('Відхилити', `application_reject:${applicationId}`)
+    .text('✅ Схвалити', `application_approve:${applicationId}`)
+    .text('✖️ Відхилити', `application_reject:${applicationId}`)
 }
 
 export function applicationsKeyboard() {
   return new Keyboard()
-    .text('Оновити заявки в гуртки')
+    .text('🔄 Оновити заявки в гуртки')
     .row()
-    .text('Назад у меню')
+    .text('↩️ Назад у меню')
     .resized()
 }
 
 export function eventPhotoKeyboard() {
   return new Keyboard()
-    .text('Пропустити фото')
+    .text('⏭️ Пропустити фото')
     .row()
-    .text('Скасувати')
+    .text('❌ Скасувати')
     .resized()
     .oneTime()
 }
 
 export function eventsHubKeyboard() {
   return new Keyboard()
-    .text('Створити подію')
+    .text('🗓️ Створити подію')
     .row()
-    .text('Оновити події')
+    .text('🔄 Оновити події')
     .row()
-    .text('Назад у меню')
+    .text('↩️ Назад у меню')
     .resized()
 }
 
@@ -228,14 +228,14 @@ export function eventsListKeyboard(
     keyboard.text(truncateButtonText(event.title), `event_open:${event.id}`).row()
   }
 
-  return keyboard.text('Створити подію', 'event_create')
+  return keyboard.text('➕ Створити подію', 'event_create')
 }
 
 export function eventActionsKeyboard(eventId: string) {
   return new InlineKeyboard()
-    .text('Надіслати в групу', `event_send:${eventId}`)
+    .text('📤 Надіслати в групу', `event_send:${eventId}`)
     .row()
-    .text('До списку подій', 'event_list')
+    .text('↩️ До списку подій', 'event_list')
 }
 
 export function eventChatsKeyboard(params: {
@@ -249,11 +249,11 @@ export function eventChatsKeyboard(params: {
   const keyboard = new InlineKeyboard()
 
   for (const chat of params.chats) {
-    const label = chat.isSent ? `Надіслано: ${chat.title}` : chat.title
+    const label = chat.isSent ? `✅ ${chat.title}` : `🚆 ${chat.title}`
     keyboard.text(truncateButtonText(label), `esc:${params.eventId}:${chat.id}`).row()
   }
 
-  return keyboard.text('До події', `event_open:${params.eventId}`)
+  return keyboard.text('↩️ До події', `event_open:${params.eventId}`)
 }
 
 export function verificationCenterKeyboard(queueTypes: RegistrationType[]) {
@@ -261,11 +261,11 @@ export function verificationCenterKeyboard(queueTypes: RegistrationType[]) {
 
   for (const queueType of queueTypes) {
     if (queueType === RegistrationType.STUDENT) {
-      keyboard.text('Учні', 'verification_queue:STUDENT').row()
+      keyboard.text('🎓 Учні', 'verification_queue:STUDENT').row()
       continue
     }
 
-    keyboard.text('Викладачі', 'verification_queue:TEACHER').row()
+    keyboard.text('👩‍🏫 Викладачі', 'verification_queue:TEACHER').row()
   }
 
   return keyboard
@@ -273,8 +273,8 @@ export function verificationCenterKeyboard(queueTypes: RegistrationType[]) {
 
 export function verificationDecisionKeyboard(userId: string) {
   return new InlineKeyboard()
-    .text('Схвалити', `verification_approve:${userId}`)
-    .text('Відхилити', `verification_reject:${userId}`)
+    .text('✅ Схвалити', `verification_approve:${userId}`)
+    .text('✖️ Відхилити', `verification_reject:${userId}`)
 }
 
 export function getRegistrationTypeLabel(type: RegistrationType) {
@@ -302,46 +302,46 @@ export function chatManagementChatsKeyboard(
 
 export function chatManagementActionsKeyboard(chatId: string) {
   return new InlineKeyboard()
-    .text('Роль / тег', `manage_action:${chatId}:role`)
-    .text('Видалити', `manage_action:${chatId}:kick`)
+    .text('🏷️ Роль / тег', `manage_action:${chatId}:role`)
+    .text('🚫 Видалити', `manage_action:${chatId}:kick`)
     .row()
-    .text('Замутити', `manage_action:${chatId}:mute`)
-    .text('Зняти мут', `manage_action:${chatId}:unmute`)
+    .text('🔇 Замутити', `manage_action:${chatId}:mute`)
+    .text('🔊 Зняти мут', `manage_action:${chatId}:unmute`)
     .row()
-    .text('Змінити назву', `manage_action:${chatId}:title`)
+    .text('✏️ Змінити назву', `manage_action:${chatId}:title`)
     .row()
-    .text('Змінити опис', `manage_action:${chatId}:description`)
+    .text('📝 Змінити опис', `manage_action:${chatId}:description`)
     .row()
-    .text('До списку чатів', `manage_action:${chatId}:back`)
+    .text('↩️ До списку чатів', `manage_action:${chatId}:back`)
 }
 
 export function selectChatMemberKeyboard(requestId: number) {
   return new Keyboard()
-    .requestUsers('Обрати учасника', requestId, {
+    .requestUsers('👤 Обрати учасника', requestId, {
       user_is_bot: false,
       max_quantity: 1,
       request_name: true,
       request_username: true
     })
     .row()
-    .text('Скасувати')
+    .text('❌ Скасувати')
     .resized()
     .oneTime()
 }
 
 export function muteDurationKeyboard(chatId: string) {
   return new InlineKeyboard()
-    .text('1 година', `manage_mute:${chatId}:1h`)
-    .text('1 день', `manage_mute:${chatId}:1d`)
+    .text('⏱️ 1 година', `manage_mute:${chatId}:1h`)
+    .text('🕐 1 день', `manage_mute:${chatId}:1d`)
     .row()
-    .text('Назавжди', `manage_mute:${chatId}:forever`)
-    .text('Скасувати', `manage_mute:${chatId}:cancel`)
+    .text('♾️ Назавжди', `manage_mute:${chatId}:forever`)
+    .text('❌ Скасувати', `manage_mute:${chatId}:cancel`)
 }
 
 export function confirmChatMemberRemovalKeyboard(chatId: string) {
   return new InlineKeyboard()
-    .text('Підтвердити', `manage_kick:${chatId}:confirm`)
-    .text('Скасувати', `manage_kick:${chatId}:cancel`)
+    .text('✅ Підтвердити', `manage_kick:${chatId}:confirm`)
+    .text('❌ Скасувати', `manage_kick:${chatId}:cancel`)
 }
 
 export function chatManagementMembersKeyboard(params: {
@@ -379,9 +379,9 @@ export function chatManagementMembersKeyboard(params: {
   }
 
   keyboard
-    .text('Вибрати вручну', `manage_member_manual:${params.chatId}:${params.action}`)
+    .text('✍️ Вибрати вручну', `manage_member_manual:${params.chatId}:${params.action}`)
     .row()
-    .text('До дій чату', `manage_action:${params.chatId}:back`)
+    .text('↩️ До дій чату', `manage_action:${params.chatId}:back`)
 
   return keyboard
 }
@@ -407,10 +407,10 @@ export function attendanceDatePromptKeyboard(params: {
   yesterdayKey: string
 }) {
   return new InlineKeyboard()
-    .text('Сьогодні', `attq:${params.chatId}:${params.todayKey}`)
-    .text('Вчора', `attq:${params.chatId}:${params.yesterdayKey}`)
+    .text('📍 Сьогодні', `attq:${params.chatId}:${params.todayKey}`)
+    .text('🕘 Вчора', `attq:${params.chatId}:${params.yesterdayKey}`)
     .row()
-    .text('До списку гуртків', 'attb')
+    .text('↩️ До списку гуртків', 'attb')
 }
 
 export function attendanceMarksKeyboard(params: {
@@ -450,16 +450,20 @@ export function attendanceMarksKeyboard(params: {
   }
 
   keyboard
-    .text('Інша дата', `attd:${params.chatId}`)
+    .text('📄 XLSX за місяць', `attf:${params.chatId}:${params.dateKey}`)
     .row()
-    .text('До списку гуртків', 'attb')
+    .text('📅 Інша дата', `attd:${params.chatId}`)
+    .row()
+    .text('↩️ До списку гуртків', 'attb')
 
   return keyboard
 }
 
-export function attendanceEmptyKeyboard(chatId: string) {
+export function attendanceEmptyKeyboard(chatId: string, dateKey: string) {
   return new InlineKeyboard()
-    .text('Інша дата', `attd:${chatId}`)
+    .text('📄 XLSX за місяць', `attf:${chatId}:${dateKey}`)
     .row()
-    .text('До списку гуртків', 'attb')
+    .text('📅 Інша дата', `attd:${chatId}`)
+    .row()
+    .text('↩️ До списку гуртків', 'attb')
 }

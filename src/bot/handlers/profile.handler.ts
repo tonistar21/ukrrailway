@@ -37,7 +37,7 @@ export async function handleProfile(ctx: BotContext) {
     await ctx.reply(
       `Профіль учня:\n\nПІБ: ${user.studentFullName ?? 'не заповнено'}\nВік: ${user.studentAge ?? 'не заповнено'}\nМісто: ${cityLabel}\nГурток: ${user.studentClub ?? 'ще не обрано'}\nСтатус верифікації: ${getVerificationStatusLabel(user.verificationStatus)}`,
       {
-        reply_markup: profileKeyboard('Оновити дані')
+        reply_markup: profileKeyboard('✏️ Оновити дані')
       }
     )
     return
@@ -47,7 +47,7 @@ export async function handleProfile(ctx: BotContext) {
     await ctx.reply(
       `Профіль викладача:\n\nІм'я: ${user.profileName ?? 'не заповнено'}\nТелефон: ${user.profilePhone ?? 'не заповнено'}\nTelegram: ${user.profileTelegramTag ?? 'не заповнено'}\nМісто: ${user.teacherCity ? cityMap[user.teacherCity] : 'не заповнено'}\nГурток: ${user.teacherClub ?? 'не заповнено'}\nСтатус верифікації: ${getVerificationStatusLabel(user.verificationStatus)}`,
       {
-        reply_markup: profileKeyboard('Оновити дані')
+        reply_markup: profileKeyboard('✏️ Оновити дані')
       }
     )
     return

@@ -82,6 +82,7 @@ export interface EventDraft {
 export interface AttendanceDraft {
   chatId?: string
   date?: string
+  exportMessageId?: number
 }
 
 export interface BotSession {
