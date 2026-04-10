@@ -280,6 +280,24 @@ export async function getApprovedTeacherByCityAndClub(params: {
   })
 }
 
+export async function getApprovedTeachersByCityAndClub(params: {
+  city: StudentCity
+  club: string
+}) {
+  return prisma.user.findMany({
+    where: {
+      role: UserRole.TEACHER,
+      verificationStatus: VerificationStatus.APPROVED,
+      teacherCity: params.city,
+      teacherClub: params.club,
+      status: UserStatus.ACTIVE
+    },
+    orderBy: {
+      createdAt: 'asc'
+    }
+  })
+}
+
 export async function getUserById(userId: string) {
   return prisma.user.findUnique({
     where: {

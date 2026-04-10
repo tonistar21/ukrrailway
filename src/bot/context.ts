@@ -45,6 +45,11 @@ export type GradeStep =
   | 'idle'
   | 'awaitingDate'
 
+export type MailStep =
+  | 'idle'
+  | 'choosingTarget'
+  | 'awaitingText'
+
 export interface CreateChatDraft {
   club?: string
   ageGroup?: string
@@ -95,6 +100,10 @@ export interface GradeDraft {
   exportMessageId?: number
 }
 
+export interface MailDraft {
+  targetType?: 'TEACHER' | 'ADMIN' | 'VICE_ADMIN'
+}
+
 export interface BotSession {
   createChatStep: CreateChatStep
   createChatDraft: CreateChatDraft
@@ -111,6 +120,8 @@ export interface BotSession {
   attendanceDraft: AttendanceDraft
   gradeStep: GradeStep
   gradeDraft: GradeDraft
+  mailStep: MailStep
+  mailDraft: MailDraft
 }
 
 export type BotContext = Context & SessionFlavor<BotSession>

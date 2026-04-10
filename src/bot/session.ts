@@ -16,6 +16,8 @@ export function createInitialSession(): BotSession {
     attendanceStep: 'idle',
     attendanceDraft: {},
     gradeStep: 'idle',
-    gradeDraft: {}
+    gradeDraft: {},
+    mailStep: 'idle',
+    mailDraft: {}
   }
 }

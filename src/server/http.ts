@@ -205,17 +205,36 @@ function renderLayout(params: {
   const navigation = params.isPublic
     ? ''
     : `<header class="appbar">
-        <div>
-          <div class="eyebrow">School Chat Bot</div>
+        <div class="brand-zone">
+          <div class="brand-block">
+            <div class="brand-mark" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <div>
+              <div class="brand-name">АТ «Укрзалізниця»</div>
+              <div class="brand-meta">Digital administration system</div>
+            </div>
+          </div>
+          <div class="brand-rail" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        </div>
+        <div class="header-copy">
+          <div class="eyebrow">Корпоративний інтерфейс</div>
           <h1 class="app-title">${params.activeTab === 'attendance' ? 'Журнал відвідуваності' : 'Керування користувачами'}</h1>
+          <p class="app-subtitle">Структурована панель для роботи з профілями, журналами та службовими даними навчальних груп.</p>
         </div>
         <div class="app-actions">
           <nav class="nav-tabs">
-            <a href="/admin" class="nav-tab${params.activeTab === 'users' ? ' active' : ''}">👥 Користувачі</a>
-            <a href="/admin/attendance" class="nav-tab${params.activeTab === 'attendance' ? ' active' : ''}">📘 Відвідуваність</a>
+            <a href="/admin" class="nav-tab${params.activeTab === 'users' ? ' active' : ''}">Користувачі</a>
+            <a href="/admin/attendance" class="nav-tab${params.activeTab === 'attendance' ? ' active' : ''}">Відвідуваність</a>
           </nav>
           <form method="post" action="/logout">
-            <button type="submit" class="secondary">🔓 Вийти</button>
+            <button type="submit" class="secondary">Вийти</button>
           </form>
         </div>
       </header>`
@@ -229,83 +248,98 @@ function renderLayout(params: {
     <style>
       :root {
         color-scheme: light;
-        --bg: #f3efe7;
-        --bg-strong: #ece5d8;
-        --panel: rgba(255, 255, 255, 0.95);
+        --bg: #f5f7fb;
+        --bg-strong: #eef2f7;
+        --panel: #ffffff;
         --panel-strong: #ffffff;
-        --line: #d8dce8;
-        --line-strong: #b5bdd0;
-        --text: #1a1a1a;
-        --muted: #5f6471;
+        --line: #d6dce8;
+        --line-strong: #aeb8cc;
+        --text: #20263a;
+        --muted: #6a7284;
         --accent: #151f6d;
-        --accent-strong: #0f1758;
-        --accent-soft: #e7ebfb;
-        --blue-soft: #e7ebfb;
+        --accent-strong: #0e1550;
+        --accent-soft: #e8ecf9;
+        --blue-soft: #edf1fa;
         --blue-text: #151f6d;
-        --amber-soft: #fff0d8;
-        --amber-text: #b86500;
-        --rose-soft: #f7dde0;
-        --rose-text: #8e3745;
+        --amber-soft: #fff1db;
+        --amber-text: #a55d00;
+        --rose-soft: #f6e3e6;
+        --rose-text: #853847;
         --slate-soft: #eef1f5;
-        --slate-text: #616775;
-        --danger: #a33a3a;
-        --shadow: 0 24px 60px rgba(21, 31, 109, 0.08);
-        --orange: #ff9e1b;
-        --orange-strong: #ea8c0f;
-        --orange-soft: #fff2de;
-        --oyster: #f3efe7;
+        --slate-text: #5f6678;
+        --danger: #a63d3d;
+        --shadow: 0 18px 36px rgba(21, 31, 109, 0.05);
+        --orange: #eb8c12;
+        --orange-strong: #c46d00;
+        --orange-soft: #fff4e5;
       }
       * { box-sizing: border-box; }
       body {
         margin: 0;
         font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
-        background:
-          radial-gradient(circle at top left, rgba(21,31,109,0.14), transparent 28%),
-          radial-gradient(circle at top right, rgba(255,158,27,0.18), transparent 24%),
-          linear-gradient(180deg, #faf8f3 0%, var(--bg) 100%);
+        background: var(--bg);
         color: var(--text);
+        position: relative;
+      }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0 0 auto 0;
+        height: 14px;
+        background: var(--accent);
+        z-index: 0;
       }
       .wrap {
-        width: min(1280px, calc(100% - 32px));
-        margin: 28px auto 40px;
+        width: min(1440px, calc(100% - 64px));
+        margin: 38px auto 52px;
+        position: relative;
+        z-index: 1;
       }
       .panel, .hero {
         background: var(--panel);
         border: 1px solid var(--line);
-        border-radius: 20px;
+        border-radius: 8px;
         box-shadow: var(--shadow);
-        backdrop-filter: blur(10px);
+        position: relative;
+        overflow: hidden;
       }
       .hero {
-        padding: 22px 24px;
-        margin-bottom: 18px;
-        background:
-          linear-gradient(135deg, rgba(255,255,255,0.98), rgba(243,239,231,0.96)),
-          var(--panel);
+        padding: 32px;
+        margin-bottom: 20px;
       }
       .panel {
-        padding: 24px;
+        padding: 28px 32px;
+      }
+      .hero::before,
+      .panel::before {
+        content: "";
+        position: absolute;
+        inset: 0 auto auto 0;
+        width: 156px;
+        height: 10px;
+        background: var(--accent);
+        clip-path: polygon(0 0, 92% 0, 100% 100%, 0 100%);
       }
       h1, h2, h3, p { margin-top: 0; }
-      h1 { font-size: 34px; margin-bottom: 10px; }
-      h2 { font-size: 26px; margin-bottom: 12px; }
-      h3 { font-size: 18px; margin-bottom: 8px; }
+      h1 { font-size: 42px; margin-bottom: 12px; line-height: 1.02; letter-spacing: -0.03em; }
+      h2 { font-size: 28px; margin-bottom: 10px; line-height: 1.08; letter-spacing: -0.02em; }
+      h3 { font-size: 18px; margin-bottom: 8px; line-height: 1.15; }
       h1, h2, h3, .app-title { color: var(--accent); }
-      p { color: var(--muted); line-height: 1.5; }
+      p { color: var(--muted); line-height: 1.55; max-width: 72ch; }
       a { color: inherit; text-decoration: none; }
       input, select, button {
         font: inherit;
-        border-radius: 12px;
+        border-radius: 4px;
         border: 1px solid var(--line);
-        padding: 11px 13px;
+        padding: 12px 14px;
         background: white;
         color: var(--text);
-        transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
       }
       input:focus, select:focus {
         outline: none;
         border-color: rgba(21, 31, 109, 0.55);
-        box-shadow: 0 0 0 4px rgba(21, 31, 109, 0.12);
+        box-shadow: 0 0 0 3px rgba(21, 31, 109, 0.12);
       }
       button {
         background: var(--accent);
@@ -313,73 +347,162 @@ function renderLayout(params: {
         color: white;
         cursor: pointer;
         font-weight: 700;
-        box-shadow: 0 10px 22px rgba(21, 31, 109, 0.15);
+        letter-spacing: 0;
       }
-      button:hover { transform: translateY(-1px); background: var(--accent-strong); border-color: var(--accent-strong); }
+      button:hover { background: var(--accent-strong); border-color: var(--accent-strong); }
       button.secondary {
         background: white;
-        border-color: rgba(21, 31, 109, 0.18);
+        border-color: var(--line-strong);
         color: var(--accent);
-        box-shadow: none;
       }
       button.secondary:hover {
         background: var(--accent-soft);
-        border-color: rgba(21, 31, 109, 0.26);
+        border-color: var(--accent);
       }
       .error {
         color: var(--danger);
-        margin-bottom: 16px;
-        padding: 12px 14px;
-        border-radius: 14px;
-        background: #fff1f1;
-        border: 1px solid #efcaca;
+        margin-bottom: 18px;
+        padding: 14px 16px;
+        border-radius: 4px;
+        background: #fff5f5;
+        border-left: 4px solid #cf6a6a;
+        border-top: 1px solid #efcaca;
+        border-right: 1px solid #efcaca;
+        border-bottom: 1px solid #efcaca;
       }
       .appbar {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 18px;
-        margin-bottom: 18px;
+        display: grid;
+        grid-template-columns: minmax(220px, 280px) minmax(320px, 1fr) auto;
+        gap: 24px;
+        align-items: start;
+        margin-bottom: 20px;
+        padding: 28px 32px 32px;
+        background: white;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: var(--shadow);
+        position: relative;
+        overflow: hidden;
+      }
+      .appbar::before {
+        content: "";
+        position: absolute;
+        inset: auto 0 0 auto;
+        width: 240px;
+        height: 56px;
+        background:
+          linear-gradient(to bottom,
+            transparent 0 8px,
+            rgba(21, 31, 109, 0.08) 8px 10px,
+            transparent 10px 20px,
+            rgba(21, 31, 109, 0.08) 20px 22px,
+            transparent 22px 32px,
+            rgba(21, 31, 109, 0.08) 32px 34px,
+            transparent 34px 100%);
       }
       .app-actions {
+        display: grid;
+        justify-items: end;
+        gap: 14px;
+      }
+      .brand-zone {
+        display: grid;
+        gap: 18px;
+      }
+      .brand-block {
         display: flex;
         align-items: center;
-        gap: 12px;
-        flex-wrap: wrap;
-        justify-content: flex-end;
+        gap: 14px;
+      }
+      .brand-mark {
+        width: 56px;
+        height: 56px;
+        border: 2px solid var(--accent);
+        display: grid;
+        align-content: center;
+        gap: 6px;
+        padding: 9px 8px;
+      }
+      .brand-mark span {
+        display: block;
+        height: 6px;
+        background: var(--accent);
+        clip-path: polygon(0 0, 88% 0, 100% 100%, 0 100%);
+      }
+      .brand-name {
+        font-size: 20px;
+        font-weight: 800;
+        line-height: 1.05;
+        color: var(--accent);
+      }
+      .brand-meta {
+        margin-top: 5px;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+      }
+      .brand-rail {
+        display: grid;
+        gap: 6px;
+        max-width: 196px;
+      }
+      .brand-rail span {
+        display: block;
+        height: 6px;
+        background: var(--accent);
+        clip-path: polygon(0 0, 94% 0, 100% 100%, 0 100%);
+      }
+      .brand-rail span:nth-child(2) {
+        width: 78%;
+      }
+      .brand-rail span:nth-child(3) {
+        width: 54%;
+      }
+      .header-copy {
+        padding-top: 2px;
       }
       .nav-tabs {
-        display: inline-flex;
+        display: inline-grid;
+        grid-template-columns: repeat(2, auto);
         gap: 8px;
         padding: 6px;
-        border-radius: 999px;
-        background: rgba(255, 250, 241, 0.9);
+        background: var(--bg-strong);
         border: 1px solid var(--line);
+        border-radius: 4px;
       }
       .nav-tab {
         padding: 10px 14px;
-        border-radius: 999px;
+        border-radius: 3px;
         color: var(--muted);
         font-weight: 700;
+        min-width: 138px;
+        text-align: center;
       }
       .nav-tab.active {
-        background: var(--orange-soft);
+        background: white;
         color: var(--accent);
+        box-shadow: inset 0 -3px 0 var(--accent);
       }
       .eyebrow {
         text-transform: uppercase;
-        letter-spacing: 0.08em;
+        letter-spacing: 0.07em;
         font-size: 12px;
         color: var(--muted);
-        margin-bottom: 6px;
+        margin-bottom: 10px;
       }
       .app-title {
         margin: 0;
-        font-size: 28px;
+        font-size: 34px;
+        line-height: 1.05;
+      }
+      .app-subtitle {
+        margin: 10px 0 0;
+        max-width: 56ch;
       }
       .meta {
         color: var(--muted);
-        font-size: 14px;
+        font-size: 13px;
       }
       .muted-block {
         color: var(--muted);
@@ -388,29 +511,30 @@ function renderLayout(params: {
       }
       .pill {
         display: inline-block;
-        padding: 7px 11px;
-        border-radius: 999px;
+        padding: 7px 10px;
+        border-radius: 3px;
         font-size: 12px;
         font-weight: 700;
         line-height: 1;
         white-space: nowrap;
+        border: 1px solid transparent;
       }
-      .pill-teal { background: var(--accent-soft); color: var(--accent-strong); }
-      .pill-blue { background: var(--blue-soft); color: var(--blue-text); }
-      .pill-amber { background: var(--amber-soft); color: var(--amber-text); }
-      .pill-rose { background: var(--rose-soft); color: var(--rose-text); }
-      .pill-slate { background: var(--slate-soft); color: var(--slate-text); }
+      .pill-teal { background: var(--accent-soft); color: var(--accent-strong); border-color: rgba(21, 31, 109, 0.1); }
+      .pill-blue { background: var(--blue-soft); color: var(--blue-text); border-color: rgba(21, 31, 109, 0.1); }
+      .pill-amber { background: var(--amber-soft); color: var(--amber-text); border-color: rgba(196, 109, 0, 0.12); }
+      .pill-rose { background: var(--rose-soft); color: var(--rose-text); border-color: rgba(133, 56, 71, 0.12); }
+      .pill-slate { background: var(--slate-soft); color: var(--slate-text); border-color: rgba(95, 102, 120, 0.1); }
       .stats-grid {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 14px;
-        margin: 18px 0 22px;
+        margin: 24px 0 0;
       }
       .stat-card {
-        background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(247,248,252,0.98));
+        background: var(--panel-strong);
         border: 1px solid var(--line);
-        border-radius: 18px;
-        padding: 16px 18px;
+        border-radius: 4px;
+        padding: 18px 18px 20px;
         position: relative;
         overflow: hidden;
       }
@@ -418,22 +542,27 @@ function renderLayout(params: {
         content: "";
         position: absolute;
         inset: 0 auto auto 0;
-        width: 100%;
-        height: 4px;
-        background: linear-gradient(90deg, var(--accent) 0%, var(--orange) 100%);
+        width: 132px;
+        height: 8px;
+        background: var(--accent);
+        clip-path: polygon(0 0, 92% 0, 100% 100%, 0 100%);
       }
       .stat-label {
         color: var(--muted);
-        font-size: 13px;
-        margin-bottom: 8px;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 14px;
+        margin-top: 14px;
       }
       .stat-value {
-        font-size: 30px;
+        font-size: 32px;
         font-weight: 800;
         line-height: 1;
+        color: var(--accent);
       }
       .stat-hint {
-        margin-top: 8px;
+        margin-top: 10px;
         color: var(--muted);
         font-size: 13px;
       }
@@ -453,26 +582,38 @@ function renderLayout(params: {
         gap: 14px;
       }
       .teacher-card {
-        padding: 18px;
-        border-radius: 18px;
+        padding: 20px;
+        border-radius: 4px;
         border: 1px solid var(--line);
-        background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(245,247,252,0.98));
+        background: white;
+        position: relative;
+      }
+      .teacher-card::before {
+        content: "";
+        position: absolute;
+        inset: 0 auto auto 0;
+        width: 116px;
+        height: 6px;
+        background: var(--accent);
+        clip-path: polygon(0 0, 92% 0, 100% 100%, 0 100%);
       }
       .teacher-card-header {
         display: flex;
         justify-content: space-between;
         gap: 10px;
-        margin-bottom: 10px;
+        margin-bottom: 12px;
       }
       .teacher-card .actions {
-        margin-top: 14px;
+        margin-top: 16px;
       }
       .toolbar {
         display: flex;
         flex-wrap: wrap;
         align-items: end;
         gap: 12px;
-        margin: 18px 0 20px;
+        margin: 22px 0 0;
+        padding-top: 18px;
+        border-top: 1px solid var(--line);
       }
       .toolbar label {
         display: grid;
@@ -487,8 +628,8 @@ function renderLayout(params: {
       .table-wrap {
         overflow: auto;
         border: 1px solid var(--line);
-        border-radius: 18px;
-        background: rgba(255,255,255,0.62);
+        border-radius: 4px;
+        background: white;
       }
       table {
         width: 100%;
@@ -498,19 +639,19 @@ function renderLayout(params: {
       }
       th, td {
         padding: 15px 14px;
-        border-top: 1px solid rgba(216, 220, 232, 0.9);
+        border-top: 1px solid rgba(214, 220, 232, 0.92);
         text-align: left;
         vertical-align: top;
-        background: rgba(255, 255, 255, 0.78);
+        background: white;
       }
       th {
         position: sticky;
         top: 0;
         z-index: 2;
-        background: rgba(239, 242, 250, 0.98);
+        background: #eff3fb;
         color: var(--accent);
         font-size: 12px;
-        font-weight: 600;
+        font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.06em;
       }
@@ -521,7 +662,7 @@ function renderLayout(params: {
         z-index: 3;
       }
       tbody .sticky-col {
-        background: rgba(255, 255, 255, 0.98);
+        background: white;
       }
       tr:first-child td { border-top: none; }
       .users-table td { min-width: 132px; }
@@ -544,6 +685,7 @@ function renderLayout(params: {
         font-size: 20px;
         font-weight: 800;
         line-height: 1.05;
+        color: var(--accent);
       }
       .user-handle {
         color: var(--muted);
@@ -570,10 +712,10 @@ function renderLayout(params: {
       }
       .empty-state {
         border: 1px dashed var(--line-strong);
-        border-radius: 18px;
-        padding: 22px;
+        border-radius: 4px;
+        padding: 24px;
         color: var(--muted);
-        background: rgba(255,255,255,0.45);
+        background: #fafbfd;
       }
       .attendance-head {
         min-width: 78px;
@@ -603,7 +745,7 @@ function renderLayout(params: {
         justify-content: center;
         width: 34px;
         height: 34px;
-        border-radius: 10px;
+        border-radius: 4px;
         font-weight: 800;
         font-size: 16px;
         border: 1px solid var(--line);
@@ -634,18 +776,91 @@ function renderLayout(params: {
       }
       .kicker {
         color: var(--muted);
-        font-size: 13px;
+        font-size: 12px;
         text-transform: uppercase;
-        letter-spacing: 0.08em;
+        letter-spacing: 0.07em;
+      }
+      .service-list {
+        display: grid;
+        gap: 10px;
+        padding: 16px 18px;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        background: var(--bg-strong);
+        min-width: 250px;
+      }
+      .service-row {
+        display: grid;
+        gap: 3px;
+      }
+      .service-label {
+        color: var(--muted);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .service-value {
+        color: var(--text);
+        font-size: 14px;
+        font-weight: 700;
+      }
+      .login-shell {
+        min-height: calc(100vh - 120px);
+        display: grid;
+        place-items: center;
+      }
+      .login-panel {
+        width: min(100%, 1080px);
+        display: grid;
+        grid-template-columns: minmax(280px, 360px) minmax(340px, 1fr);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: white;
+        overflow: hidden;
+        box-shadow: var(--shadow);
+      }
+      .login-brand {
+        padding: 34px 28px;
+        background: #f8faff;
+        border-right: 1px solid var(--line);
+        display: grid;
+        align-content: space-between;
+        gap: 26px;
+      }
+      .login-copy {
+        max-width: 48ch;
+      }
+      .login-copy h1 {
+        margin-bottom: 12px;
+      }
+      .login-form {
+        padding: 40px 36px;
+        display: grid;
+        align-content: center;
+      }
+      .login-form label {
+        display: grid;
+        gap: 8px;
+      }
+      .form-stack {
+        display: grid;
+        gap: 14px;
+      }
+      .page-stack {
+        display: grid;
+        gap: 20px;
       }
       @media (max-width: 900px) {
         .wrap {
-          width: min(100% - 20px, 1280px);
-          margin-top: 18px;
+          width: min(100% - 24px, 1440px);
+          margin-top: 24px;
         }
         .panel, .hero {
-          padding: 18px;
-          border-radius: 18px;
+          padding: 22px;
+        }
+        .appbar {
+          grid-template-columns: 1fr;
+          padding: 22px;
         }
         .appbar,
         .section-title-row,
@@ -653,12 +868,22 @@ function renderLayout(params: {
         .split {
           display: grid;
         }
+        .app-actions {
+          justify-items: start;
+        }
         .stats-grid {
           grid-template-columns: 1fr 1fr;
         }
         .nav-tabs {
           width: 100%;
-          justify-content: space-between;
+          grid-template-columns: 1fr 1fr;
+        }
+        .login-panel {
+          grid-template-columns: 1fr;
+        }
+        .login-brand {
+          border-right: none;
+          border-bottom: 1px solid var(--line);
         }
         .table-wrap.users-responsive {
           overflow: visible;
@@ -680,13 +905,13 @@ function renderLayout(params: {
         .users-responsive tr {
           margin-bottom: 14px;
           border: 1px solid var(--line);
-          border-radius: 18px;
+          border-radius: 6px;
           overflow: hidden;
-          background: rgba(255, 250, 241, 0.92);
+          background: white;
         }
         .users-responsive td {
           padding: 14px 16px;
-          border-top: 1px solid rgba(217, 204, 176, 0.7);
+          border-top: 1px solid rgba(214, 220, 232, 0.92);
         }
         .users-responsive td:first-child {
           border-top: none;
@@ -705,10 +930,21 @@ function renderLayout(params: {
         .stats-grid {
           grid-template-columns: 1fr;
         }
+        h1,
+        .app-title {
+          font-size: 30px;
+        }
+        h2 {
+          font-size: 24px;
+        }
         .role-form {
           min-width: 100%;
           flex-direction: column;
           align-items: stretch;
+        }
+        .login-form,
+        .login-brand {
+          padding: 24px 20px;
         }
       }
     </style>
@@ -728,23 +964,62 @@ function renderLoginPage(errorText?: string) {
   return renderLayout({
     title: 'Вхід до адмін-панелі',
     isPublic: true,
-    body: `<section class="panel" style="max-width: 460px; margin: 10vh auto 0;">
-      <h1>Адмін-панель</h1>
-      <p>Увійдіть, щоб переглядати користувачів, їх статус верифікації та призначати ролі.</p>
-      ${errorBlock}
-      <form method="post" action="/login">
-        <label>
-          <span class="meta">Логін</span>
-          <input type="text" name="login" required autocomplete="username" style="width: 100%; margin-top: 6px;" />
-        </label>
-        <div style="height: 12px;"></div>
-        <label>
-          <span class="meta">Пароль</span>
-          <input type="password" name="password" required autocomplete="current-password" style="width: 100%; margin-top: 6px;" />
-        </label>
-        <div style="height: 16px;"></div>
-        <button type="submit" style="width: 100%;">Увійти</button>
-      </form>
+    body: `<section class="login-shell">
+      <div class="login-panel">
+        <div class="login-brand">
+          <div>
+            <div class="brand-block">
+              <div class="brand-mark" aria-hidden="true">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+              <div>
+                <div class="brand-name">АТ «Укрзалізниця»</div>
+                <div class="brand-meta">Digital administration system</div>
+              </div>
+            </div>
+            <div class="brand-rail" aria-hidden="true" style="margin-top: 22px;">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          </div>
+          <div class="service-list">
+            <div class="service-row">
+              <div class="service-label">Модуль</div>
+              <div class="service-value">Адміністративна панель</div>
+            </div>
+            <div class="service-row">
+              <div class="service-label">Призначення</div>
+              <div class="service-value">Користувачі, верифікація, журнали</div>
+            </div>
+            <div class="service-row">
+              <div class="service-label">Середовище</div>
+              <div class="service-value">School Chat Bot</div>
+            </div>
+          </div>
+        </div>
+        <div class="login-form">
+          <div class="login-copy">
+            <div class="eyebrow">Авторизація</div>
+            <h1>Службовий вхід</h1>
+            <p>Увійдіть до корпоративної панелі, щоб працювати з профілями користувачів, верифікацією викладачів та журналами груп.</p>
+          </div>
+          ${errorBlock}
+          <form method="post" action="/login" class="form-stack">
+            <label>
+              <span class="meta">Логін</span>
+              <input type="text" name="login" required autocomplete="username" />
+            </label>
+            <label>
+              <span class="meta">Пароль</span>
+              <input type="password" name="password" required autocomplete="current-password" />
+            </label>
+            <button type="submit" style="width: 100%;">Увійти до системи</button>
+          </form>
+        </div>
+      </div>
     </section>`
   })
 }
@@ -820,8 +1095,8 @@ function renderPendingTeacherCard(user: Awaited<ReturnType<typeof getAllUsers>>[
       <div><strong>Подано:</strong> ${escapeHtml(requestedAt)}</div>
     </div>
     <form method="post" action="/admin/users/${escapeHtml(user.id)}/verification" class="actions">
-            <button type="submit" name="action" value="approve">✅ Схвалити</button>
-            <button type="submit" name="action" value="reject" class="secondary">✖️ Відхилити</button>
+            <button type="submit" name="action" value="approve">Схвалити</button>
+            <button type="submit" name="action" value="reject" class="secondary">Відхилити</button>
     </form>
   </article>`
 }
@@ -876,7 +1151,7 @@ async function renderUsersPage() {
         <td data-label="Керування">
           <form method="post" action="/admin/users/${escapeHtml(user.id)}/role" class="role-form">
             <select name="role">${selectedOptions}</select>
-            <button type="submit">💾 Зберегти</button>
+            <button type="submit">Зберегти</button>
           </form>
         </td>
       </tr>`
@@ -886,53 +1161,72 @@ async function renderUsersPage() {
   return renderLayout({
     title: 'Користувачі',
     activeTab: 'users',
-    body: `<section class="hero">
-      <div class="split">
-        <div>
-          <h1>Зареєстровані користувачі</h1>
-          <p>Акуратна панель для перегляду всіх профілів, заявок викладачів та швидкого керування ролями.</p>
+    body: `<div class="page-stack">
+      <section class="hero">
+        <div class="split">
+          <div>
+            <div class="kicker">Реєстр системи</div>
+            <h1>Зареєстровані користувачі</h1>
+            <p>Офіційна панель обліку профілів, службових ролей і статусів верифікації для навчальних чатів та викладацьких груп.</p>
+          </div>
+          <div class="service-list">
+            <div class="service-row">
+              <div class="service-label">Стан системи</div>
+              <div class="service-value">${escapeHtml(`${activeCount} активних акаунтів`)}</div>
+            </div>
+            <div class="service-row">
+              <div class="service-label">Очікують рішення</div>
+              <div class="service-value">${escapeHtml(`${pendingTeachers.length} заявок викладачів`)}</div>
+            </div>
+            <div class="service-row">
+              <div class="service-label">Оновлення</div>
+              <div class="service-value">${escapeHtml(formatDateTime(new Date()))}</div>
+            </div>
+          </div>
         </div>
-      </div>
-      <div class="stats-grid">
-        ${renderStatCard({ label: 'Усього користувачів', value: users.length })}
-        ${renderStatCard({ label: 'Учні', value: studentsCount })}
-        ${renderStatCard({ label: 'Викладачі', value: teachersCount })}
-        ${renderStatCard({ label: 'Активні акаунти', value: activeCount, hint: `${pendingTeachers.length} заявок викладачів чекають рішення` })}
-      </div>
-    </section>
-    <section class="panel" style="margin-bottom: 18px;">
-      <div class="section-title-row">
-        <div>
-          <h2>Заявки викладачів</h2>
-          <p>${pendingTeachers.length === 0 ? 'Нових заявок зараз немає.' : 'Схвалення тут відкриває викладачу доступ до його гуртка в боті.'}</p>
+        <div class="stats-grid">
+          ${renderStatCard({ label: 'Усього користувачів', value: users.length })}
+          ${renderStatCard({ label: 'Учні', value: studentsCount })}
+          ${renderStatCard({ label: 'Викладачі', value: teachersCount })}
+          ${renderStatCard({ label: 'Активні акаунти', value: activeCount, hint: `${pendingTeachers.length} заявок викладачів чекають рішення` })}
         </div>
-      </div>
-      ${pendingTeachers.length === 0 ? '<div class="empty-state">У цю мить усі заявки викладачів уже оброблені.</div>' : `<div class="card-grid">${pendingTeacherCards}</div>`}
-    </section>
-    <section class="panel">
-      <div class="section-title-row">
-        <div>
-          <h2>База користувачів</h2>
-          <p>Статуси, контакти та роль зібрані компактно, без перевантаження по колонках.</p>
+      </section>
+      <section class="panel">
+        <div class="section-title-row">
+          <div>
+            <div class="kicker">Блок погодження</div>
+            <h2>Заявки викладачів</h2>
+            <p>${pendingTeachers.length === 0 ? 'Нових заявок зараз немає.' : 'Схвалення в цьому модулі відкриває викладачу доступ до відповідного гуртка в боті.'}</p>
+          </div>
         </div>
-      </div>
-      <div class="table-wrap users-responsive">
-        <table class="users-table">
-          <thead>
-            <tr>
-              <th>Користувач</th>
-              <th>Статус</th>
-              <th>Профіль</th>
-              <th>Створено</th>
-              <th>Керування</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows || '<tr><td colspan="5">Користувачів поки немає.</td></tr>'}
-          </tbody>
-        </table>
-      </div>
-    </section>`
+        ${pendingTeachers.length === 0 ? '<div class="empty-state">У цю мить усі заявки викладачів уже оброблені.</div>' : `<div class="card-grid">${pendingTeacherCards}</div>`}
+      </section>
+      <section class="panel">
+        <div class="section-title-row">
+          <div>
+            <div class="kicker">Операційна база</div>
+            <h2>База користувачів</h2>
+            <p>Статуси, контакти та роль зібрані в табличному модулі з єдиною структурою та чіткою службовою ієрархією.</p>
+          </div>
+        </div>
+        <div class="table-wrap users-responsive">
+          <table class="users-table">
+            <thead>
+              <tr>
+                <th>Користувач</th>
+                <th>Статус</th>
+                <th>Профіль</th>
+                <th>Створено</th>
+                <th>Керування</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows || '<tr><td colspan="5">Користувачів поки немає.</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>`
   })
 }
 
@@ -965,7 +1259,7 @@ async function renderAttendancePage(params: {
       <input type="month" name="month" value="${escapeHtml(formatMonthValue(monthStart))}" />
     </label>
     <div class="toolbar-actions">
-      <button type="submit">📅 Показати журнал</button>
+      <button type="submit">Показати журнал</button>
     </div>
   </form>`
 
@@ -974,8 +1268,9 @@ async function renderAttendancePage(params: {
       title: 'Журнал відвідуваності',
       activeTab: 'attendance',
       body: `<section class="hero">
+        <div class="kicker">Місячний журнал</div>
         <h1>Журнал відвідуваності</h1>
-        <p>У веб-панелі можна швидко переглядати відмітки по кожному гуртку за вибраний місяць.</p>
+        <p>У веб-панелі можна переглядати відмітки по кожному гуртку за вибраний місяць у структурованому табличному форматі.</p>
       </section>
       <section class="panel">
         <div class="section-title-row">
@@ -1044,58 +1339,71 @@ async function renderAttendancePage(params: {
   return renderLayout({
     title: 'Журнал відвідуваності',
     activeTab: 'attendance',
-    body: `<section class="hero">
-      <div class="split">
-        <div>
-          <div class="kicker">Місячний журнал</div>
-          <h1>${escapeHtml(report.chat.title)}</h1>
-          <p>Табличний перегляд відміток по гуртку <strong>${escapeHtml(report.chat.club)}</strong> за ${escapeHtml(monthLabel)}.</p>
+    body: `<div class="page-stack">
+      <section class="hero">
+        <div class="split">
+          <div>
+            <div class="kicker">Місячний журнал</div>
+            <h1>${escapeHtml(report.chat.title)}</h1>
+            <p>Табличний перегляд відміток по гуртку <strong>${escapeHtml(report.chat.club)}</strong> за ${escapeHtml(monthLabel)} з єдиною структурою по всіх датах занять.</p>
+          </div>
+          <div class="service-list">
+            <div class="service-row">
+              <div class="service-label">Відповідальний</div>
+              <div class="service-value">${escapeHtml(selectedChat.createdBy.fullName)}</div>
+            </div>
+            <div class="service-row">
+              <div class="service-label">Telegram ID чату</div>
+              <div class="service-value">${escapeHtml(selectedChat.telegramChatId?.toString() ?? 'не вказано')}</div>
+            </div>
+            <div class="service-row">
+              <div class="service-label">Період</div>
+              <div class="service-value">${escapeHtml(monthLabel)}</div>
+            </div>
+          </div>
         </div>
-        <div class="muted-block">
-          <div><strong>Відповідальний:</strong> ${escapeHtml(selectedChat.createdBy.fullName)}</div>
-          <div><strong>Telegram ID чату:</strong> ${escapeHtml(selectedChat.telegramChatId?.toString() ?? 'не вказано')}</div>
+        ${filters}
+        <div class="stats-grid">
+          ${renderStatCard({ label: 'Учнів у журналі', value: report.totalStudents })}
+          ${renderStatCard({ label: 'Занять у місяці', value: report.totalSessions })}
+          ${renderStatCard({ label: 'Усього відміток', value: report.possibleMarks === 0 ? '0' : `${report.presentMarks} / ${report.possibleMarks}` })}
+          ${renderStatCard({ label: 'Середня відвідуваність', value: `${report.averageAttendanceRate}%` })}
         </div>
-      </div>
-      ${filters}
-      <div class="stats-grid">
-        ${renderStatCard({ label: 'Учнів у журналі', value: report.totalStudents })}
-        ${renderStatCard({ label: 'Занять у місяці', value: report.totalSessions })}
-        ${renderStatCard({ label: 'Усього відміток', value: report.possibleMarks === 0 ? '0' : `${report.presentMarks} / ${report.possibleMarks}` })}
-        ${renderStatCard({ label: 'Середня відвідуваність', value: `${report.averageAttendanceRate}%` })}
-      </div>
-    </section>
-    <section class="panel">
-      <div class="section-title-row">
-        <div>
-          <h2>Табличний журнал</h2>
-          <p>По горизонтали показані всі дати занять у вибраному місяці. Праворуч видно підсумок по кожному учню.</p>
+      </section>
+      <section class="panel">
+        <div class="section-title-row">
+          <div>
+            <div class="kicker">Табличний модуль</div>
+            <h2>Табличний журнал</h2>
+            <p>По горизонталі показані всі дати занять у вибраному місяці. Праворуч розміщений підсумок по кожному учню.</p>
+          </div>
         </div>
-      </div>
-      ${report.totalSessions === 0
-        ? '<div class="empty-state">За цей місяць для обраного гуртка ще немає жодного заняття з відмітками. Створіть відмітки в боті, і таблиця заповниться автоматично.</div>'
-        : `<div class="table-wrap">
-            <table class="attendance-table">
-              <thead>
-                <tr>
-                  <th class="sticky-col">Учень</th>
-                  ${sessionHeaders}
-                  <th>Підсумок</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${attendanceRows || `<tr><td colspan="${report.sessions.length + 2}">Немає учнів для відображення.</td></tr>`}
-                <tr>
-                  <td class="sticky-col"><strong>Підсумок по датах</strong></td>
-                  ${sessionTotals}
-                  <td>
-                    <div class="summary-strong">${report.presentMarks}</div>
-                    <div class="meta">усього присутностей</div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>`}
-    </section>`
+        ${report.totalSessions === 0
+          ? '<div class="empty-state">За цей місяць для обраного гуртка ще немає жодного заняття з відмітками. Створіть відмітки в боті, і таблиця заповниться автоматично.</div>'
+          : `<div class="table-wrap">
+              <table class="attendance-table">
+                <thead>
+                  <tr>
+                    <th class="sticky-col">Учень</th>
+                    ${sessionHeaders}
+                    <th>Підсумок</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${attendanceRows || `<tr><td colspan="${report.sessions.length + 2}">Немає учнів для відображення.</td></tr>`}
+                  <tr>
+                    <td class="sticky-col"><strong>Підсумок по датах</strong></td>
+                    ${sessionTotals}
+                    <td>
+                      <div class="summary-strong">${report.presentMarks}</div>
+                      <div class="meta">усього присутностей</div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>`}
+      </section>
+    </div>`
   })
 }
 

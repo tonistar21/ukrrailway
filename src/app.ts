@@ -4,6 +4,7 @@ import { env } from './config/env.js'
 import { prisma } from './db/prisma.js'
 import { createHttpServer } from './server/http.js'
 import { startEventReminderScheduler } from './services/event-reminder.service.js'
+import { startInterestingEventsScheduler } from './services/interesting-events-scheduler.service.js'
 
 async function bootstrap() {
   await prisma.$connect()
@@ -35,6 +36,10 @@ async function bootstrap() {
         {
           command: 'city_top',
           description: 'Показати топ учнів міста за оцінками'
+        },
+        {
+          command: 'interesting_events',
+          description: 'Показати цікаві події в цьому чаті'
         }
       ],
       {
@@ -52,15 +57,18 @@ async function bootstrap() {
   })
 
   const stopEventReminderScheduler = startEventReminderScheduler(bot)
+  const stopInterestingEventsScheduler = startInterestingEventsScheduler()
 
   process.on('SIGINT', async () => {
     stopEventReminderScheduler()
+    stopInterestingEventsScheduler()
     await prisma.$disconnect()
     process.exit(0)
   })
 
   process.on('SIGTERM', async () => {
     stopEventReminderScheduler()
+    stopInterestingEventsScheduler()
     await prisma.$disconnect()
     process.exit(0)
   })

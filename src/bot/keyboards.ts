@@ -15,6 +15,9 @@ export function managerMenuKeyboard() {
     .text('🛡️ Верифікація викладачів')
     .text('🌐 Усі чати')
     .row()
+    .text('📬 Пошта')
+    .text('📰 Цікаві події')
+    .row()
     .text('👤 Профіль')
     .persistent()
     .resized()
@@ -32,8 +35,10 @@ export function teacherMenuKeyboard(canVerifyStudents = false) {
     .text('📘 Журнал відвідуваності')
     .row()
     .text('📝 Журнал оцінок')
-    .text('👤 Профіль')
+    .text('📬 Пошта')
     .row()
+    .text('📰 Цікаві події')
+    .text('👤 Профіль')
 
   return keyboard
     .persistent()
@@ -70,6 +75,10 @@ export function pendingVerificationKeyboard() {
 
 export function userMenuKeyboard() {
   return new Keyboard()
+    .text('✉️ Написати листа')
+    .row()
+    .text('📰 Цікаві події')
+    .row()
     .text('👤 Профіль')
     .persistent()
     .resized()
@@ -390,6 +399,128 @@ export function chatManagementMembersKeyboard(params: {
   return keyboard
 }
 
+export function myChatsQuickAccessKeyboard(
+  chats: Array<{
+    title: string
+    url: string
+  }>
+) {
+  const keyboard = new InlineKeyboard()
+
+  for (const chat of chats) {
+    keyboard.url(truncateButtonText(`🔗 ${chat.title}`), chat.url).row()
+  }
+
+  return keyboard
+}
+
+export function interestingEventsKeyboard(params: {
+  currentIndex: number
+  totalItems: number
+}) {
+  const keyboard = new InlineKeyboard()
+
+  for (let index = 0; index < params.totalItems; index += 1) {
+    const label = index === params.currentIndex ? `•${index + 1}` : String(index + 1)
+    keyboard.text(label, `iev_show:${index}`)
+
+    if ((index + 1) % 6 === 0 && index < params.totalItems - 1) {
+      keyboard.row()
+    }
+  }
+
+  if (params.totalItems > 0) {
+    keyboard.row()
+  }
+
+  if (params.totalItems > 1) {
+    keyboard.text('⬅️ Попередня', 'iev_prev')
+    keyboard.text('➡️ Наступна', 'iev_next').row()
+  }
+
+  return keyboard
+    .text('🔄 Оновити', 'iev_refresh')
+    .text('✖️ Закрити', 'iev_close')
+}
+
+export function mailRecipientKeyboard() {
+  return new InlineKeyboard()
+    .text('👩‍🏫 Вчителю', 'mail_target:TEACHER')
+    .row()
+    .text('🛡️ Керівнику', 'mail_target:ADMIN')
+    .row()
+    .text('🧩 Заступник керівника', 'mail_target:VICE_ADMIN')
+    .row()
+    .text('❌ Скасувати', 'mail_cancel')
+}
+
+export function mailboxOverviewKeyboard() {
+  return new InlineKeyboard()
+    .text('📥 Непрочитані', 'mailbox_tab:unread')
+    .text('📂 Прочитані', 'mailbox_tab:read')
+}
+
+export function mailboxListKeyboard(params: {
+  tab: 'unread' | 'read'
+  items: Array<{
+    id: string
+    label: string
+  }>
+}) {
+  const keyboard = new InlineKeyboard()
+
+  for (const item of params.items) {
+    keyboard.text(truncateButtonText(item.label, 32), `mail_open:${item.id}:${params.tab}`).row()
+  }
+
+  keyboard
+    .text(params.tab === 'unread' ? '📂 Прочитані' : '📥 Непрочитані', `mailbox_tab:${params.tab === 'unread' ? 'read' : 'unread'}`)
+    .row()
+    .text('↩️ До пошти', 'mailbox_home')
+
+  return keyboard
+}
+
+export function mailDetailKeyboard(tab: 'unread' | 'read') {
+  return new InlineKeyboard()
+    .text(`↩️ До ${tab === 'unread' ? 'непрочитаних' : 'прочитаних'}`, `mailbox_tab:${tab}`)
+    .row()
+    .text('📬 До пошти', 'mailbox_home')
+}
+
+export function mailboxNotificationKeyboard() {
+  return new InlineKeyboard().text('📬 Відкрити пошту', 'mailbox_tab:unread')
+}
+
+export function groupInterestingEventsKeyboard(params: {
+  currentIndex: number
+  totalItems: number
+}) {
+  const keyboard = new InlineKeyboard()
+
+  for (let index = 0; index < params.totalItems; index += 1) {
+    const label = index === params.currentIndex ? `•${index + 1}` : String(index + 1)
+    keyboard.text(label, `giev_show:${index}`)
+
+    if ((index + 1) % 6 === 0 && index < params.totalItems - 1) {
+      keyboard.row()
+    }
+  }
+
+  if (params.totalItems > 0) {
+    keyboard.row()
+  }
+
+  if (params.totalItems > 1) {
+    keyboard.text('⬅️ Попередня', `giev_prev:${params.currentIndex}`)
+    keyboard.text('➡️ Наступна', `giev_next:${params.currentIndex}`).row()
+  }
+
+  return keyboard
+    .text('🔄 Оновити', `giev_refresh:${params.currentIndex}`)
+    .text('✖️ Закрити', 'giev_close')
+}
+
 export function attendanceChatsKeyboard(
   chats: Array<{
     id: string
@@ -586,6 +717,8 @@ export function gradeEmptyKeyboard(chatId: string, dateKey: string) {
 export function groupFeaturesKeyboard(chatId: string) {
   return new InlineKeyboard()
     .text('🏆 Топ учнів міста', `gft:${chatId}`)
+    .row()
+    .text('📰 Цікаві події', 'giev_open')
 }
 
 export function cityLeaderboardKeyboard(chatId: string) {

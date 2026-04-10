@@ -72,6 +72,19 @@ import {
   handleOpenEvent,
   startEventCreation
 } from './handlers/event.handler.js'
+import {
+  handleMailbox,
+  handleMailboxNavigation,
+  handleMailTargetSelection,
+  handleMailTextInput,
+  startMailCompose
+} from './handlers/mail.handler.js'
+import {
+  handleGroupInterestingEvents,
+  handleGroupInterestingEventsAction,
+  handleInterestingEvents,
+  handleInterestingEventsAction
+} from './handlers/interesting-events.handler.js'
 import { handleMyChatMember } from './handlers/my-chat-member.handler.js'
 import { handleMyChats } from './handlers/my-chats.handler.js'
 import {
@@ -109,6 +122,7 @@ bot.use(
 bot.command('start', handleStart)
 bot.command('chat_tools', handleGroupFeaturesCommand)
 bot.command('city_top', handleCityTopCommand)
+bot.command('interesting_events', handleGroupInterestingEvents)
 
 bot.callbackQuery(/^club:/, handleClubSelection)
 bot.callbackQuery(/^age:/, handleAgeGroupSelection)
@@ -152,6 +166,10 @@ bot.callbackQuery(/^event_send:/, handleEventSendStart)
 bot.callbackQuery(/^(event_send_chat:|esc:)/, handleEventSendToChat)
 bot.callbackQuery(/^event_create$/, handleEventCreateCallback)
 bot.callbackQuery(/^event_list$/, handleEventListCallback)
+bot.callbackQuery(/^mail(_target:(TEACHER|ADMIN|VICE_ADMIN)|_cancel)$/, handleMailTargetSelection)
+bot.callbackQuery(/^mail(box_home|box_tab:(unread|read)|_open:[^:]+:(unread|read))$/, handleMailboxNavigation)
+bot.callbackQuery(/^giev_(open|show:\d+|prev:\d+|next:\d+|refresh:\d+|close)$/, handleGroupInterestingEventsAction)
+bot.callbackQuery(/^iev_(show:\d+|prev|next|refresh|close)$/, handleInterestingEventsAction)
 
 bot.hears('Створити чат', startCreateChatFlow)
 bot.hears('🚆 Створити чат', startCreateChatFlow)
@@ -165,6 +183,12 @@ bot.hears('Журнал відвідуваності', handleAttendance)
 bot.hears('📘 Журнал відвідуваності', handleAttendance)
 bot.hears('Журнал оцінок', handleGrades)
 bot.hears('📝 Журнал оцінок', handleGrades)
+bot.hears('Написати листа', startMailCompose)
+bot.hears('✉️ Написати листа', startMailCompose)
+bot.hears('Пошта', handleMailbox)
+bot.hears('📬 Пошта', handleMailbox)
+bot.hears('Цікаві події', handleInterestingEvents)
+bot.hears('📰 Цікаві події', handleInterestingEvents)
 bot.hears('Створити подію', startEventCreation)
 bot.hears('🗓️ Створити подію', startEventCreation)
 bot.hears('Оновити події', handleEventsHub)
@@ -229,6 +253,11 @@ bot.on('message:text', async (ctx, next) => {
 
   const gradesHandled = await handleGradesTextInput(ctx)
   if (gradesHandled) {
+    return
+  }
+
+  const mailHandled = await handleMailTextInput(ctx)
+  if (mailHandled) {
     return
   }
 

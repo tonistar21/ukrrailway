@@ -53,6 +53,12 @@ enum StudentApplicationStatus {
   REJECTED
 }
 
+enum MailTargetType {
+  TEACHER
+  ADMIN
+  VICE_ADMIN
+}
+
 model User {
   id                           String                 @id @default(cuid())
   telegramUserId               BigInt                 @unique
@@ -84,6 +90,8 @@ model User {
   assignedApplications         StudentApplication[]   @relation("AssignedTeacherApplications")
   reviewedApplications         StudentApplication[]   @relation("ReviewedApplications")
   ownApplications              StudentApplication[]   @relation("ApplicantApplications")
+  sentMailTickets              MailTicket[]           @relation("MailTicketSender")
+  receivedMailTickets          MailTicketRecipient[]  @relation("MailTicketRecipientUser")
   verificationReviewedBy       User?                  @relation("UserVerificationReviews", fields: [verificationReviewedByUserId], references: [id], onDelete: SetNull)
   reviewedVerificationUsers    User[]                 @relation("UserVerificationReviews")
 
@@ -247,4 +255,71 @@ model GradeRecord {
 
   @@unique([gradeSessionId, telegramUserId])
   @@index([gradeSessionId, grade])
+}
+
+model NewsItem {
+  id               String            @id @default(cuid())
+  source           String
+  externalId       String
+  title            String
+  dateText         String?
+  location         String?
+  description      String
+  imageUrl         String?
+  localImagePath   String?
+  indexInSource    Int
+  isActive         Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  viewSessions     NewsViewSession[]
+
+  @@unique([source, externalId])
+  @@index([source, isActive, indexInSource])
+}
+
+model NewsViewSession {
+  id                String    @id @default(cuid())
+  telegramUserId    BigInt    @unique
+  chatId            BigInt
+  messageId         Int
+  source            String    @default("interesting_events")
+  currentNewsItemId String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  currentNewsItem   NewsItem  @relation(fields: [currentNewsItemId], references: [id], onDelete: Cascade)
+
+  @@index([source, updatedAt])
+}
+
+model MailTicket {
+  id          String                @id @default(cuid())
+  senderUserId String
+  targetType  MailTargetType
+  text        String
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  sender      User                  @relation("MailTicketSender", fields: [senderUserId], references: [id], onDelete: Cascade)
+  recipients  MailTicketRecipient[]
+
+  @@index([senderUserId, createdAt])
+  @@index([targetType, createdAt])
+}
+
+model MailTicketRecipient {
+  id              String     @id @default(cuid())
+  ticketId        String
+  recipientUserId String
+  isRead          Boolean    @default(false)
+  readAt          DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  ticket          MailTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  recipient       User       @relation("MailTicketRecipientUser", fields: [recipientUserId], references: [id], onDelete: Cascade)
+
+  @@unique([ticketId, recipientUserId])
+  @@index([recipientUserId, isRead, createdAt])
 }

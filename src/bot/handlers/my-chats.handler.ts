@@ -1,6 +1,22 @@
 import { BotContext } from '../context.js'
 import { ensureBotAccess, getMenuByUser } from '../access.js'
+import { myChatsQuickAccessKeyboard } from '../keyboards.js'
 import { deleteChatById, getChatsByCreator } from '../../services/chat.service.js'
+
+function getChatQuickAccessUrl(chat: {
+  username?: string
+  invite_link?: string
+}) {
+  if (chat.username) {
+    return `https://t.me/${chat.username}`
+  }
+
+  if (chat.invite_link) {
+    return chat.invite_link
+  }
+
+  return null
+}
 
 export async function handleMyChats(ctx: BotContext) {
   const user = await ensureBotAccess(ctx)
@@ -10,6 +26,7 @@ export async function handleMyChats(ctx: BotContext) {
 
   const botInfo = await ctx.api.getMe()
   const chats = await getChatsByCreator(user.id)
+  const quickAccessUrls = new Map<string, string>()
 
   for (const chat of chats) {
     if (!chat.telegramChatId) {
@@ -17,11 +34,17 @@ export async function handleMyChats(ctx: BotContext) {
     }
 
     try {
-      await ctx.api.getChat(Number(chat.telegramChatId))
+      const telegramChat = await ctx.api.getChat(Number(chat.telegramChatId))
       const member = await ctx.api.getChatMember(Number(chat.telegramChatId), botInfo.id)
 
       if (member.status !== 'administrator' && member.status !== 'member') {
         await deleteChatById(chat.id)
+        continue
+      }
+
+      const quickAccessUrl = getChatQuickAccessUrl(telegramChat)
+      if (quickAccessUrl) {
+        quickAccessUrls.set(chat.id, quickAccessUrl)
       }
     } catch {
       await deleteChatById(chat.id)
@@ -51,7 +74,28 @@ export async function handleMyChats(ctx: BotContext) {
     })
     .join('\n\n')
 
-  await ctx.reply(text, {
-    reply_markup: getMenuByUser(user)
+  const quickAccessChats = refreshedChats.flatMap((chat) => {
+    const url = quickAccessUrls.get(chat.id)
+
+    if (!url) {
+      return []
+    }
+
+    return [
+      {
+        title: chat.title,
+        url
+      }
+    ]
   })
+
+  await ctx.reply(
+    quickAccessChats.length > 0
+      ? `${text}\n\nНижче є кнопки швидкого доступу до прив’язаних чатів.`
+      : text,
+    {
+      reply_markup:
+        quickAccessChats.length > 0 ? myChatsQuickAccessKeyboard(quickAccessChats) : getMenuByUser(user)
+    }
+  )
 }
