@@ -117,11 +117,33 @@ import {
 
 export const bot = new Bot<BotContext>(env.BOT_TOKEN)
 
+function isExpiredCallbackQueryError(error: unknown) {
+  return error instanceof Error && error.message.includes('query is too old')
+}
+
 bot.use(
   session({
     initial: createInitialSession
   })
 )
+
+bot.use(async (ctx, next) => {
+  const answerCallbackQuery = ctx.answerCallbackQuery.bind(ctx)
+
+  ctx.answerCallbackQuery = (async (...args: Parameters<BotContext['answerCallbackQuery']>) => {
+    try {
+      return await answerCallbackQuery(...args)
+    } catch (error) {
+      if (isExpiredCallbackQueryError(error)) {
+        return true
+      }
+
+      throw error
+    }
+  }) as BotContext['answerCallbackQuery']
+
+  await next()
+})
 
 bot.command('start', handleStart)
 bot.command('chat_tools', handleGroupFeaturesCommand)
@@ -174,7 +196,7 @@ bot.callbackQuery(/^mail(_target:(TEACHER|ADMIN|VICE_ADMIN)|_cancel)$/, handleMa
 bot.callbackQuery(/^mail(box_home|box_tab:(unread|read)|_open:[^:]+:(unread|read))$/, handleMailboxNavigation)
 bot.callbackQuery(/^(tss|tsp|tsn|tsr|tsc):(ALL|KYIV|LVIV|DNIPRO|RIVNE|ZAPORIZHZHIA|KHARKIV)(:\d+)?$/, handleTeacherShowcaseAction)
 bot.callbackQuery(/^giev_(open|show:\d+|prev:\d+|next:\d+|refresh:\d+|close)$/, handleGroupInterestingEventsAction)
-bot.callbackQuery(/^iev_(show:\d+|prev|next|refresh|close)$/, handleInterestingEventsAction)
+bot.callbackQuery(/^iev_(show:\d+|prev|next|refresh|close|fire|fire_top)$/, handleInterestingEventsAction)
 
 bot.hears('Створити чат', startCreateChatFlow)
 bot.hears('🚆 Створити чат', startCreateChatFlow)
@@ -303,6 +325,24 @@ bot.on('message:text', async (ctx) => {
   })
 })
 
-bot.catch(async (error) => {
-  console.error('BOT_ERROR', error)
+bot.catch(async (botError) => {
+  const { error, ctx } = botError
+
+  if (isExpiredCallbackQueryError(error)) {
+    return
+  }
+
+  const safeError =
+    error instanceof Error
+      ? {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        }
+      : error
+
+  console.error('BOT_ERROR', {
+    updateId: ctx.update.update_id,
+    error: safeError
+  })
 })

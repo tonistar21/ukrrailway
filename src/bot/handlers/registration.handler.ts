@@ -2,6 +2,7 @@ import { RegistrationType, StudentCity, User, UserRole, VerificationStatus } fro
 import { BotContext } from '../context.js'
 import {
   registrationTypeKeyboard,
+  resolveClubSelection,
   studentCityKeyboard,
   studentClubKeyboard,
   teacherCityKeyboard,
@@ -187,7 +188,14 @@ export async function handleStudentClubSelection(ctx: BotContext) {
     return
   }
 
-  const club = data.replace('student_club:', '')
+  const club = resolveClubSelection('student_club', data)
+  if (!club) {
+    await ctx.answerCallbackQuery({
+      text: 'Не вдалося обрати гурток.'
+    })
+    return
+  }
+
   ctx.session.registrationDraft.club = club
 
   await ctx.answerCallbackQuery()
@@ -219,7 +227,14 @@ export async function handleTeacherClubSelection(ctx: BotContext) {
     return
   }
 
-  const club = data.replace('teacher_club:', '')
+  const club = resolveClubSelection('teacher_club', data)
+  if (!club) {
+    await ctx.answerCallbackQuery({
+      text: 'Не вдалося обрати гурток.'
+    })
+    return
+  }
+
   ctx.session.registrationDraft.club = club
   ctx.session.createChatStep = 'teacherTelegramTag'
 

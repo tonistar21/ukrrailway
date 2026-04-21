@@ -88,13 +88,43 @@ export function userMenuKeyboard() {
     .resized()
 }
 
-const clubs = ['Робототехніка', 'Програмування', 'Англійська мова', 'Математика', 'Малювання']
+const clubs = [
+  {
+    id: 'computer',
+    label: 'Комп’ютерний гурток 💻'
+  },
+  {
+    id: 'local_history',
+    label: 'Краєзнавчий гурток 🗺️'
+  },
+  {
+    id: 'theatre',
+    label: 'Художньо-театральний гурток 🎭'
+  },
+  {
+    id: 'ecology',
+    label: 'Екологічний гурток 🌿'
+  },
+  {
+    id: 'modeling',
+    label: 'Моделюючий гурток 🧩'
+  }
+]
+
+export function resolveClubSelection(prefix: 'club' | 'student_club' | 'teacher_club', data: string) {
+  if (!data.startsWith(`${prefix}:`)) {
+    return null
+  }
+
+  const clubId = data.replace(`${prefix}:`, '')
+  return clubs.find((club) => club.id === clubId)?.label ?? null
+}
 
 function buildClubSelectionKeyboard(prefix: 'club' | 'student_club' | 'teacher_club') {
   const keyboard = new InlineKeyboard()
 
   clubs.forEach((club, index) => {
-    keyboard.text(club, `${prefix}:${club}`)
+    keyboard.text(club.label, `${prefix}:${club.id}`)
 
     if (index < clubs.length - 1) {
       keyboard.row()
@@ -325,6 +355,8 @@ export function chatManagementActionsKeyboard(chatId: string) {
     .text('🔇 Замутити', `manage_action:${chatId}:mute`)
     .text('🔊 Зняти мут', `manage_action:${chatId}:unmute`)
     .row()
+    .text('🖼️ Фото чату', `manage_action:${chatId}:photo`)
+    .row()
     .text('✏️ Змінити назву', `manage_action:${chatId}:title`)
     .row()
     .text('📝 Змінити опис', `manage_action:${chatId}:description`)
@@ -421,6 +453,10 @@ export function myChatsQuickAccessKeyboard(
 export function interestingEventsKeyboard(params: {
   currentIndex: number
   totalItems: number
+  fireGame?: {
+    currentStreak: number
+    hasClickedToday: boolean
+  }
 }) {
   const keyboard = new InlineKeyboard()
 
@@ -435,6 +471,17 @@ export function interestingEventsKeyboard(params: {
 
   if (params.totalItems > 0) {
     keyboard.row()
+  }
+
+  if (params.fireGame) {
+    const fireButtonLabel = params.fireGame.hasClickedToday
+      ? `✅ Серія ${params.fireGame.currentStreak} 🔥`
+      : '🔥 Вогник дня'
+
+    keyboard
+      .text(fireButtonLabel, 'iev_fire')
+      .text('🏆 Топ серій', 'iev_fire_top')
+      .row()
   }
 
   if (params.totalItems > 1) {

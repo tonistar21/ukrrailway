@@ -296,3 +296,33 @@ export async function getGradeMonthReport(params: {
     averageGrade: gradedMarksCount === 0 ? null : roundToOne(gradesSum / gradedMarksCount)
   }
 }
+
+export async function getLatestGradeSession(params?: {
+  chatIds?: string[]
+  chatId?: string
+}) {
+  const chatIds = params?.chatId ? [params.chatId] : params?.chatIds
+
+  if (chatIds && chatIds.length === 0) {
+    return null
+  }
+
+  return prisma.gradeSession.findFirst({
+    where: {
+      ...(chatIds
+        ? {
+            chatId: {
+              in: chatIds
+            }
+          }
+        : {})
+    },
+    orderBy: {
+      sessionDate: 'desc'
+    },
+    select: {
+      chatId: true,
+      sessionDate: true
+    }
+  })
+}

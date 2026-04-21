@@ -5,7 +5,8 @@ async function processInterestingEventsSync() {
   try {
     await syncInterestingEvents()
   } catch (error) {
-    console.error('INTERESTING_EVENTS_SYNC_ERROR', error)
+    const message = error instanceof Error ? error.message : String(error)
+    console.warn(`INTERESTING_EVENTS_SYNC_SKIPPED: ${message}`)
   }
 }
 

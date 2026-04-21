@@ -1,7 +1,7 @@
 import { InputFile, type Api } from 'grammy'
 import { type NewsItem } from '@prisma/client'
 import { BotContext } from '../context.js'
-import { ensureRegisteredUser, getMenuByUser } from '../access.js'
+import { ensureRegisteredUser, getMenuByUser, isApprovedStudent } from '../access.js'
 import { groupInterestingEventsKeyboard, interestingEventsKeyboard } from '../keyboards.js'
 import {
   deleteNewsViewSessionByTelegramUserId,
@@ -11,6 +11,11 @@ import {
   syncInterestingEvents,
   upsertNewsViewSession
 } from '../../services/interesting-events.service.js'
+import {
+  claimDailyNewsFire,
+  getNewsFireGameState,
+  getNewsFireLeaderboard
+} from '../../services/news-fire-game.service.js'
 
 const MAX_CAPTION_LENGTH = 1024
 
@@ -44,17 +49,78 @@ function buildInterestingEventCaption(item: NewsItem, currentIndex: number, tota
   return truncateText(lines.join('\n'), MAX_CAPTION_LENGTH)
 }
 
+function getDayWord(count: number) {
+  const lastTwoDigits = count % 100
+  const lastDigit = count % 10
+
+  if (lastTwoDigits >= 11 && lastTwoDigits <= 14) {
+    return 'днів'
+  }
+
+  if (lastDigit === 1) {
+    return 'день'
+  }
+
+  if (lastDigit >= 2 && lastDigit <= 4) {
+    return 'дні'
+  }
+
+  return 'днів'
+}
+
+function getLeaderboardUserName(entry: Awaited<ReturnType<typeof getNewsFireLeaderboard>>[number]) {
+  return entry.user.studentFullName ?? entry.user.fullName ?? entry.user.username ?? 'Учень'
+}
+
+function buildFireLeaderboardText(entries: Awaited<ReturnType<typeof getNewsFireLeaderboard>>) {
+  if (entries.length === 0) {
+    return '🏆 Топ серій вогників\n\nПоки немає активних серій. Натисніть свій вогник сьогодні, щоб увійти в рейтинг.'
+  }
+
+  const lines = entries.map((entry, index) => {
+    const streakText = `${entry.currentStreak} ${getDayWord(entry.currentStreak)}`
+    return `${index + 1}. ${getLeaderboardUserName(entry)} - ${streakText} 🔥, всього: ${entry.totalFires}`
+  })
+
+  return [
+    '🏆 Топ-10 серій вогників',
+    '',
+    ...lines,
+    '',
+    'Серія тримається, якщо натискати вогник щодня. Пропущений день скидає серію.'
+  ].join('\n')
+}
+
+async function buildInterestingEventsReplyMarkup(params: {
+  userId: string
+  canShowFireGame: boolean
+  currentIndex: number
+  totalItems: number
+}) {
+  const fireGame = params.canShowFireGame ? await getNewsFireGameState(params.userId) : undefined
+
+  return interestingEventsKeyboard({
+    currentIndex: params.currentIndex,
+    totalItems: params.totalItems,
+    fireGame
+  })
+}
+
 async function sendInterestingEventMessage(
   api: Api,
   params: {
     chatId: number
+    userId: string
+    canShowFireGame: boolean
     item: NewsItem
     currentIndex: number
     totalItems: number
   }
 ) {
   const caption = buildInterestingEventCaption(params.item, params.currentIndex, params.totalItems)
-  const replyMarkup = interestingEventsKeyboard({
+  const replyMarkup = await buildInterestingEventsReplyMarkup({
+    userId: params.userId,
+    canShowFireGame: params.canShowFireGame,
     currentIndex: params.currentIndex,
     totalItems: params.totalItems
   })
@@ -123,13 +189,17 @@ async function replaceInterestingEventMessage(
   params: {
     chatId: number
     messageId: number
+    userId: string
+    canShowFireGame: boolean
     item: NewsItem
     currentIndex: number
     totalItems: number
   }
 ) {
   const caption = buildInterestingEventCaption(params.item, params.currentIndex, params.totalItems)
-  const replyMarkup = interestingEventsKeyboard({
+  const replyMarkup = await buildInterestingEventsReplyMarkup({
+    userId: params.userId,
+    canShowFireGame: params.canShowFireGame,
     currentIndex: params.currentIndex,
     totalItems: params.totalItems
   })
@@ -192,6 +262,8 @@ async function replaceInterestingEventMessage(
 
     const message = await sendInterestingEventMessage(api, {
       chatId: params.chatId,
+      userId: params.userId,
+      canShowFireGame: params.canShowFireGame,
       item: params.item,
       currentIndex: params.currentIndex,
       totalItems: params.totalItems
@@ -201,6 +273,27 @@ async function replaceInterestingEventMessage(
       messageId: message.message_id
     }
   }
+}
+
+async function updateInterestingEventReplyMarkup(
+  api: Api,
+  params: {
+    chatId: number
+    messageId: number
+    userId: string
+    canShowFireGame: boolean
+    currentIndex: number
+    totalItems: number
+  }
+) {
+  await api.editMessageReplyMarkup(params.chatId, params.messageId, {
+    reply_markup: await buildInterestingEventsReplyMarkup({
+      userId: params.userId,
+      canShowFireGame: params.canShowFireGame,
+      currentIndex: params.currentIndex,
+      totalItems: params.totalItems
+    })
+  })
 }
 
 async function replaceGroupInterestingEventMessage(
@@ -268,13 +361,27 @@ async function loadInterestingEventsWithRefresh() {
     await syncInterestingEvents()
   } catch (error) {
     refreshed = false
-    console.error('INTERESTING_EVENTS_OPEN_SYNC_ERROR', error)
+    const message = error instanceof Error ? error.message : String(error)
+    console.warn(`INTERESTING_EVENTS_OPEN_SYNC_SKIPPED: ${message}`)
   }
 
   return {
     refreshed,
     items: await getActiveInterestingEvents()
   }
+}
+
+async function loadInterestingEventsFromCacheOrRefresh() {
+  const cachedItems = await getActiveInterestingEvents()
+
+  if (cachedItems.length > 0) {
+    return {
+      refreshed: false,
+      items: cachedItems
+    }
+  }
+
+  return loadInterestingEventsWithRefresh()
 }
 
 async function resolveTargetIndex(params: {
@@ -312,7 +419,7 @@ export async function handleInterestingEvents(ctx: BotContext) {
     return
   }
 
-  const { items } = await loadInterestingEventsWithRefresh()
+  const { items } = await loadInterestingEventsFromCacheOrRefresh()
 
   if (items.length === 0) {
     await ctx.reply('Новини поки недоступні. Спробуйте трохи пізніше.', {
@@ -333,6 +440,8 @@ export async function handleInterestingEvents(ctx: BotContext) {
 
   const message = await sendInterestingEventMessage(ctx.api, {
     chatId: ctx.chat.id,
+    userId: user.id,
+    canShowFireGame: isApprovedStudent(user),
     item: items[0],
     currentIndex: 0,
     totalItems: items.length
@@ -376,14 +485,70 @@ export async function handleInterestingEventsAction(ctx: BotContext) {
     return
   }
 
+  if (data === 'iev_fire_top') {
+    const leaderboard = await getNewsFireLeaderboard()
+
+    await ctx.answerCallbackQuery()
+    await ctx.reply(buildFireLeaderboardText(leaderboard), {
+      reply_markup: getMenuByUser(user)
+    })
+    return
+  }
+
+  if (data === 'iev_fire') {
+    if (!isApprovedStudent(user)) {
+      await ctx.answerCallbackQuery({
+        text: 'Гра доступна тільки верифікованим учням.',
+        show_alert: true
+      })
+      return
+    }
+
+    const result = await claimDailyNewsFire(user.id)
+    const items = await getActiveInterestingEvents()
+    const currentIndex = Math.max(
+      items.findIndex((item) => item.id === session.currentNewsItemId),
+      0
+    )
+
+    if (items.length > 0) {
+      try {
+        await updateInterestingEventReplyMarkup(ctx.api, {
+          chatId: Number(session.chatId),
+          messageId: session.messageId,
+          userId: user.id,
+          canShowFireGame: true,
+          currentIndex,
+          totalItems: items.length
+        })
+      } catch {
+        // The message may be stale; the fire itself is already counted.
+      }
+    }
+
+    await ctx.answerCallbackQuery({
+      text:
+        result.status === 'already_claimed'
+          ? `Сьогодні вогник уже зараховано. Серія: ${result.currentStreak} ${getDayWord(result.currentStreak)}. Усього: ${result.totalFires} 🔥.`
+          : `Вогник зараховано! Серія: ${result.currentStreak} ${getDayWord(result.currentStreak)}. Усього: ${result.totalFires} 🔥.`
+    })
+    return
+  }
+
   let items: NewsItem[]
 
   if (data === 'iev_refresh') {
+    await ctx.answerCallbackQuery({
+      text: 'Оновлюю новини...'
+    })
     const refreshedResult = await loadInterestingEventsWithRefresh()
     items = refreshedResult.items
-    await ctx.answerCallbackQuery({
-      text: refreshedResult.refreshed ? 'Новини оновлено.' : 'Сайт недоступний. Показую збережені новини.'
-    })
+
+    if (!refreshedResult.refreshed) {
+      await ctx.reply('Сайт новин тимчасово недоступний. Показую збережені новини.', {
+        reply_markup: getMenuByUser(user)
+      })
+    }
   } else {
     items = await getActiveInterestingEvents()
     await ctx.answerCallbackQuery()
@@ -406,6 +571,8 @@ export async function handleInterestingEventsAction(ctx: BotContext) {
   const updatedMessage = await replaceInterestingEventMessage(ctx.api, {
     chatId: Number(session.chatId),
     messageId: session.messageId,
+    userId: user.id,
+    canShowFireGame: isApprovedStudent(user),
     item: targetItem,
     currentIndex: targetIndex,
     totalItems: items.length
@@ -425,7 +592,7 @@ export async function handleGroupInterestingEvents(ctx: BotContext) {
     return
   }
 
-  const { items } = await loadInterestingEventsWithRefresh()
+  const { items } = await loadInterestingEventsFromCacheOrRefresh()
 
   if (items.length === 0) {
     await ctx.reply('Новини поки недоступні. Спробуйте трохи пізніше.')
@@ -454,7 +621,7 @@ export async function handleGroupInterestingEventsAction(ctx: BotContext) {
   }
 
   if (data === 'giev_open') {
-    const { items } = await loadInterestingEventsWithRefresh()
+    const { items } = await loadInterestingEventsFromCacheOrRefresh()
 
     if (items.length === 0) {
       await ctx.reply('Новини поки недоступні. Спробуйте трохи пізніше.')

@@ -5,7 +5,8 @@ import {
   clubKeyboard,
   connectChatKeyboard,
   contactChoiceKeyboard,
-  incompleteRegistrationKeyboard
+  incompleteRegistrationKeyboard,
+  resolveClubSelection
 } from '../keyboards.js'
 import {
   ensureBotAccess,
@@ -68,7 +69,14 @@ export async function handleClubSelection(ctx: BotContext) {
     return
   }
 
-  const club = data.replace('club:', '')
+  const club = resolveClubSelection('club', data)
+  if (!club) {
+    await ctx.answerCallbackQuery({
+      text: 'Не вдалося обрати гурток.'
+    })
+    return
+  }
+
   ctx.session.createChatDraft.club = club
   ctx.session.createChatStep = 'ageGroup'
 

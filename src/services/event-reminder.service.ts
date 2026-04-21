@@ -76,7 +76,10 @@ async function processEventReminders(bot: Bot<BotContext>) {
 
 export function startEventReminderScheduler(bot: Bot<BotContext>) {
   const run = () => {
-    void processEventReminders(bot)
+    void processEventReminders(bot).catch((error) => {
+      const message = error instanceof Error ? error.message : String(error)
+      console.warn(`EVENT_REMINDER_SYNC_SKIPPED: ${message}`)
+    })
   }
 
   run()

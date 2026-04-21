@@ -1,5 +1,6 @@
+import path from 'node:path'
 import { ChatStatus, UserRole, type Chat, type User } from '@prisma/client'
-import { InlineKeyboard } from 'grammy'
+import { InlineKeyboard, InputFile } from 'grammy'
 import { BotContext } from '../context.js'
 import { ensureBotAccess, getCurrentTelegramUser, getMenuByUser, getMenuByUserRole } from '../access.js'
 import {
@@ -45,6 +46,7 @@ const MUTED_CHAT_PERMISSIONS = {
 } as const
 
 const MEMBER_PAGE_SIZE = 8
+const DEFAULT_CHAT_PHOTO_PATH = path.resolve(process.cwd(), 'assets/chat/uz-default-chat-photo.png')
 
 const FULL_CHAT_PERMISSIONS = {
   can_send_messages: true,
@@ -583,6 +585,27 @@ export async function handleChatManagementAction(ctx: BotContext) {
       role: user.role,
       action: 'kick'
     })
+    return
+  }
+
+  if (action === 'photo') {
+    try {
+      await ctx.api.setChatPhoto(Number(chat.telegramChatId), new InputFile(DEFAULT_CHAT_PHOTO_PATH))
+    } catch {
+      resetChatManagementState(ctx, chat.id)
+      await ctx.reply(
+        'Не вдалося оновити фото чату. Переконайтеся, що бот має право змінювати інформацію чату, а файл зображення доступний на сервері.',
+        {
+          reply_markup: chatManagementActionsKeyboard(chat.id)
+        }
+      )
+      await restoreBotMenu(ctx, user.role)
+      return
+    }
+
+    resetChatManagementState(ctx, chat.id)
+    await replyWithChatActions(ctx, chat, 'Фото чату успішно оновлено. У Telegram зміна може відобразитися не миттєво через кеш.')
+    await restoreBotMenu(ctx, user.role)
     return
   }
 

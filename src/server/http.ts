@@ -5,6 +5,7 @@ import { bot } from '../bot/bot.js'
 import { env } from '../config/env.js'
 import { getAttendanceMonthReport } from '../services/attendance.service.js'
 import { getAllActiveChats } from '../services/chat.service.js'
+import { getGradeMonthReport, getLatestGradeSession } from '../services/grade.service.js'
 import {
   approveVerificationRequest,
   getAllUsers,
@@ -199,9 +200,16 @@ function renderStatCard(params: {
 function renderLayout(params: {
   title: string
   body: string
-  activeTab?: 'users' | 'attendance'
+  activeTab?: 'users' | 'attendance' | 'grades'
   isPublic?: boolean
 }) {
+  const appTitle =
+    params.activeTab === 'attendance'
+      ? 'Журнал відвідуваності'
+      : params.activeTab === 'grades'
+        ? 'Журнал оцінок'
+        : 'Керування користувачами'
+
   const navigation = params.isPublic
     ? ''
     : `<header class="appbar">
@@ -225,13 +233,14 @@ function renderLayout(params: {
         </div>
         <div class="header-copy">
           <div class="eyebrow">Корпоративний інтерфейс</div>
-          <h1 class="app-title">${params.activeTab === 'attendance' ? 'Журнал відвідуваності' : 'Керування користувачами'}</h1>
+          <h1 class="app-title">${appTitle}</h1>
           <p class="app-subtitle">Структурована панель для роботи з профілями, журналами та службовими даними навчальних груп.</p>
         </div>
         <div class="app-actions">
           <nav class="nav-tabs">
             <a href="/admin" class="nav-tab${params.activeTab === 'users' ? ' active' : ''}">Користувачі</a>
             <a href="/admin/attendance" class="nav-tab${params.activeTab === 'attendance' ? ' active' : ''}">Відвідуваність</a>
+            <a href="/admin/grades" class="nav-tab${params.activeTab === 'grades' ? ' active' : ''}">Оцінки</a>
           </nav>
           <form method="post" action="/logout">
             <button type="submit" class="secondary">Вийти</button>
@@ -464,7 +473,7 @@ function renderLayout(params: {
       }
       .nav-tabs {
         display: inline-grid;
-        grid-template-columns: repeat(2, auto);
+        grid-template-columns: repeat(3, auto);
         gap: 8px;
         padding: 6px;
         background: var(--bg-strong);
@@ -760,6 +769,17 @@ function renderLayout(params: {
         color: var(--muted);
         background: rgba(255,255,255,0.85);
       }
+      .mark-grade {
+        min-width: 34px;
+        padding: 0 8px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        border-color: rgba(21, 31, 109, 0.16);
+      }
+      .mark-empty {
+        color: var(--muted);
+        background: rgba(255,255,255,0.85);
+      }
       .summary-cell {
         min-width: 110px;
       }
@@ -876,7 +896,7 @@ function renderLayout(params: {
         }
         .nav-tabs {
           width: 100%;
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: 1fr;
         }
         .login-panel {
           grid-template-columns: 1fr;
@@ -1407,6 +1427,199 @@ async function renderAttendancePage(params: {
   })
 }
 
+function formatAverageGrade(value: number | null) {
+  return value === null ? '—' : String(value)
+}
+
+async function renderGradesPage(params: {
+  chatId?: string
+  month?: string
+}) {
+  const chats = await getAllActiveChats()
+  const requestedChat = chats.find((chat) => chat.id === params.chatId) ?? null
+  const latestSession = await getLatestGradeSession({
+    chatIds: requestedChat ? [requestedChat.id] : chats.map((chat) => chat.id)
+  })
+  const selectedChat =
+    requestedChat ??
+    chats.find((chat) => chat.id === latestSession?.chatId) ??
+    chats[0] ??
+    null
+  const monthStart =
+    parseMonthValue(params.month) ??
+    (latestSession
+      ? new Date(Date.UTC(latestSession.sessionDate.getUTCFullYear(), latestSession.sessionDate.getUTCMonth(), 1))
+      : getCurrentMonthStart())
+
+  let report = null
+
+  if (selectedChat) {
+    report = await getGradeMonthReport({
+      chatId: selectedChat.id,
+      monthStart
+    })
+  }
+
+  const filters = `<form method="get" action="/admin/grades" class="toolbar">
+    <label>
+      <span class="meta">Гурток / чат</span>
+      <select name="chatId">
+        ${chats.map((chat) => `<option value="${escapeHtml(chat.id)}"${selectedChat?.id === chat.id ? ' selected' : ''}>${escapeHtml(`${chat.title} · ${chat.club}`)}</option>`).join('')}
+      </select>
+    </label>
+    <label>
+      <span class="meta">Місяць</span>
+      <input type="month" name="month" value="${escapeHtml(formatMonthValue(monthStart))}" />
+    </label>
+    <div class="toolbar-actions">
+      <button type="submit">Показати журнал</button>
+    </div>
+  </form>`
+
+  if (!selectedChat || !report) {
+    return renderLayout({
+      title: 'Журнал оцінок',
+      activeTab: 'grades',
+      body: `<section class="hero">
+        <div class="kicker">Місячний журнал</div>
+        <h1>Журнал оцінок</h1>
+        <p>У веб-панелі можна переглядати оцінки по кожному гуртку за вибраний місяць у структурованому табличному форматі.</p>
+      </section>
+      <section class="panel">
+        <div class="section-title-row">
+          <div>
+            <h2>Немає підключених гуртків</h2>
+            <p>Щойно викладач підключить активний чат, тут з’явиться табличний журнал оцінок.</p>
+          </div>
+        </div>
+        <div class="empty-state">Для побудови журналу потрібен хоча б один активний чат із підключеним гуртком.</div>
+      </section>`
+    })
+  }
+
+  const monthLabel = monthStart.toLocaleDateString('uk-UA', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC'
+  })
+
+  const gradeRows = report.students
+    .map((student) => {
+      const marks = student.marks
+        .map((mark) => `<td>${mark === null ? '<span class="mark mark-empty">—</span>' : `<span class="mark mark-grade">${escapeHtml(String(mark))}</span>`}</td>`)
+        .join('')
+
+      return `<tr>
+        <td class="student-cell sticky-col" data-label="Учень">
+          <div class="stack compact">
+            <strong>${escapeHtml(student.fullName)}</strong>
+            <span class="meta">${escapeHtml(student.username ? `@${student.username}` : 'username не вказано')}</span>
+          </div>
+        </td>
+        ${marks}
+        <td class="summary-cell">
+          <div class="summary-strong">${formatAverageGrade(student.averageGrade)}</div>
+          <div class="meta">${student.gradedCount} оцінок</div>
+        </td>
+      </tr>`
+    })
+    .join('')
+
+  const sessionHeaders = report.sessions
+    .map((session) => {
+      const weekday = session.sessionDate.toLocaleDateString('uk-UA', {
+        weekday: 'short',
+        timeZone: 'UTC'
+      })
+      const day = session.sessionDate.toLocaleDateString('uk-UA', {
+        day: '2-digit',
+        timeZone: 'UTC'
+      })
+
+      return `<th class="attendance-head">
+        <div class="day">${escapeHtml(day)}</div>
+        <div class="weekday">${escapeHtml(weekday)}</div>
+      </th>`
+    })
+    .join('')
+
+  const sessionTotals = report.sessions
+    .map(
+      (session) => `<td><div class="summary-strong">${formatAverageGrade(session.averageGrade)}</div><div class="meta">${session.gradedCount} оцінок</div></td>`
+    )
+    .join('')
+
+  return renderLayout({
+    title: 'Журнал оцінок',
+    activeTab: 'grades',
+    body: `<div class="page-stack">
+      <section class="hero">
+        <div class="split">
+          <div>
+            <div class="kicker">Місячний журнал</div>
+            <h1>${escapeHtml(report.chat.title)}</h1>
+            <p>Табличний перегляд оцінок по гуртку <strong>${escapeHtml(report.chat.club)}</strong> за ${escapeHtml(monthLabel)} з підсумками по учнях і датах занять.</p>
+          </div>
+          <div class="service-list">
+            <div class="service-row">
+              <div class="service-label">Відповідальний</div>
+              <div class="service-value">${escapeHtml(selectedChat.createdBy.fullName)}</div>
+            </div>
+            <div class="service-row">
+              <div class="service-label">Telegram ID чату</div>
+              <div class="service-value">${escapeHtml(selectedChat.telegramChatId?.toString() ?? 'не вказано')}</div>
+            </div>
+            <div class="service-row">
+              <div class="service-label">Період</div>
+              <div class="service-value">${escapeHtml(monthLabel)}</div>
+            </div>
+          </div>
+        </div>
+        ${filters}
+        <div class="stats-grid">
+          ${renderStatCard({ label: 'Учнів у журналі', value: report.totalStudents })}
+          ${renderStatCard({ label: 'Занять у місяці', value: report.totalSessions })}
+          ${renderStatCard({ label: 'Виставлено оцінок', value: report.possibleMarks === 0 ? '0' : `${report.gradedMarksCount} / ${report.possibleMarks}` })}
+          ${renderStatCard({ label: 'Середній бал', value: formatAverageGrade(report.averageGrade) })}
+        </div>
+      </section>
+      <section class="panel">
+        <div class="section-title-row">
+          <div>
+            <div class="kicker">Табличний модуль</div>
+            <h2>Табличний журнал</h2>
+            <p>По горизонталі показані всі дати з журналу оцінок у вибраному місяці. Праворуч розміщений середній бал і кількість оцінок по кожному учню.</p>
+          </div>
+        </div>
+        ${report.totalSessions === 0
+          ? '<div class="empty-state">За цей місяць для обраного гуртка ще немає жодного заняття з оцінками. Виставте оцінки в боті, і таблиця заповниться автоматично.</div>'
+          : `<div class="table-wrap">
+              <table class="attendance-table">
+                <thead>
+                  <tr>
+                    <th class="sticky-col">Учень</th>
+                    ${sessionHeaders}
+                    <th>Середній бал</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${gradeRows || `<tr><td colspan="${report.sessions.length + 2}">Немає учнів для відображення.</td></tr>`}
+                  <tr>
+                    <td class="sticky-col"><strong>Підсумок по датах</strong></td>
+                    ${sessionTotals}
+                    <td>
+                      <div class="summary-strong">${formatAverageGrade(report.averageGrade)}</div>
+                      <div class="meta">${report.gradedMarksCount} оцінок</div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>`}
+      </section>
+    </div>`
+  })
+}
+
 export function createHttpServer() {
   const app = express()
 
@@ -1468,6 +1681,21 @@ export function createHttpServer() {
     const month = typeof req.query.month === 'string' ? req.query.month : undefined
 
     res.status(200).send(await renderAttendancePage({
+      chatId,
+      month
+    }))
+  })
+
+  app.get('/admin/grades', async (req, res) => {
+    if (!isAuthenticated(req)) {
+      res.redirect('/login')
+      return
+    }
+
+    const chatId = typeof req.query.chatId === 'string' ? req.query.chatId : undefined
+    const month = typeof req.query.month === 'string' ? req.query.month : undefined
+
+    res.status(200).send(await renderGradesPage({
       chatId,
       month
     }))
